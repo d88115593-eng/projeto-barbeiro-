@@ -2,6 +2,8 @@
 import { revalidatePath } from "next/cache";
 import {fromZonedTime} from "date-fns-tz";
 import {initialServices} from "@/lib/default-services";
+import {validatedWebhookUrl} from "@/lib/webhook-url";
+import {sendBookingWebhook} from "@/lib/notification-webhook";
 import {db} from "@/lib/db";
 import {requireActiveOwner,requireOwner} from "@/lib/auth";
 import {moneyInput,str,urlOrBlank,onlyDigits} from "@/lib/format";
@@ -233,13 +235,7 @@ export async function updateNotificationIntegration(form:FormData){
  const {shop}=await requireOwner();
  const enabled=form.get("notificationWebhookEnabled")==="on";
  const raw=str(form,"notificationWebhookUrl",1200).trim();
- if(raw){
-  try{
-   const url=new URL(raw);
-   const hostname=url.hostname.toLowerCase();
-   if(url.protocol!=="https:"||url.username||url.password||url.port||hostname==="localhost"||hostname.endsWith(".local")||hostname.endsWith(".internal")||/^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(hostname)||hostname.includes(":")||!hostname.includes("."))return;
-  }catch{return;}
- }
+ if(raw&&!await validatedWebhookUrl(raw))return;
  if(enabled&&!raw)return;
  await db.barbershop.update({where:{id:shop.id},data:{notificationWebhookUrl:raw,notificationWebhookEnabled:enabled}});
  revalidatePath("/admin");
