@@ -33,7 +33,7 @@ export async function resetOwnerPassword(form:FormData){
  if(!owner)return;
  const passwordHash=await bcrypt.hash(password,12);
  await db.$transaction([
-  db.user.update({where:{id:owner.id},data:{passwordHash}}),
+  db.user.update({where:{id:owner.id},data:{passwordHash,mustChangePassword:true}}),
   db.session.deleteMany({where:{userId:owner.id}}),
   db.auditLog.create({data:{actorId:actor.id,shopId,event:"SENHA_REDEFINIDA"}})
  ]);

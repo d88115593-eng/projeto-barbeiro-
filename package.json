@@ -18,7 +18,8 @@
     "next": "15.5.29",
     "react": "19.1.10",
     "react-dom": "19.1.10",
-    "lucide-react": "^0.468.0"
+    "lucide-react": "^0.468.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -26,6 +27,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "prisma": "^6.15.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "@types/qrcode": "^1.5.5"
   }
 }

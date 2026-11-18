@@ -46,6 +46,8 @@ model Barbershop {
   showGallery Boolean @default(true)
   showReviews Boolean @default(true)
   logoUrl String @default("")
+  logoStyle String @default("CARD")
+  pixRecipientName String @default("")
   coverUrl String @default("")
   accentColor String @default("#2563FF")
   address String @default("")
@@ -73,6 +75,10 @@ model Barbershop {
 model User {
   id String @id @default(cuid())
   username String @unique
+  fullName String @default("")
+  email String @default("")
+  phone String @default("")
+  mustChangePassword Boolean @default(false)
   passwordHash String
   role Role @default(OWNER)
   shopId String?
