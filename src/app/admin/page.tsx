@@ -21,6 +21,7 @@ export default async function Admin({searchParams}:{searchParams:Promise<{webhoo
  const {user,shop}=await requireOwner();
  const now=new Date(),today=formatInTimeZone(now,shop.timezone,"yyyy-MM-dd"),month=formatInTimeZone(now,shop.timezone,"yyyy-MM");
  const todayStart=fromZonedTime(today+"T00:00:00",shop.timezone),tomorrow=new Date(todayStart.getTime()+86400000),monthStart=fromZonedTime(month+"-01T00:00:00",shop.timezone);
+ const paidInWindow=(from:Date,to?:Date)=>({OR:[{paidAt:{gte:from,...(to?{lt:to}:{})}},{paidAt:null,startAt:{gte:from,...(to?{lt:to}:{})}}]});
  const [professionals,services,appointments,expenses,media,reviews,monthRevenue,todayRevenue,monthExpenses,pendingRevenue,todayCount,monthByPro,blockedDates,support,appointmentChanges,notificationDeliveries]=await Promise.all([
   db.professional.findMany({where:{shopId:shop.id},include:{hours:true},orderBy:{name:"asc"}}),
   db.service.findMany({where:{shopId:shop.id},orderBy:{name:"asc"}}),
@@ -28,12 +29,12 @@ export default async function Admin({searchParams}:{searchParams:Promise<{webhoo
   db.expense.findMany({where:{shopId:shop.id},orderBy:{spentAt:"desc"},take:100}),
   db.media.findMany({where:{shopId:shop.id},orderBy:{createdAt:"desc"},take:60}),
   db.review.findMany({where:{shopId:shop.id},orderBy:{createdAt:"desc"},take:40}),
-  db.appointment.aggregate({where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PAID",startAt:{gte:monthStart}},_sum:{amountCents:true}}),
-  db.appointment.aggregate({where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PAID",startAt:{gte:todayStart,lt:tomorrow}},_sum:{amountCents:true}}),
+  db.appointment.aggregate({where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PAID",...paidInWindow(monthStart)},_sum:{amountCents:true}}),
+  db.appointment.aggregate({where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PAID",...paidInWindow(todayStart,tomorrow)},_sum:{amountCents:true}}),
   db.expense.aggregate({where:{shopId:shop.id,spentAt:{gte:monthStart}},_sum:{amountCents:true}}),
-  db.appointment.aggregate({where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PENDING"},_sum:{amountCents:true}}),
+  db.appointment.aggregate({where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PENDING",startAt:{gte:monthStart}},_sum:{amountCents:true}}),
   db.appointment.count({where:{shopId:shop.id,startAt:{gte:todayStart,lt:tomorrow},status:{not:"CANCELLED"}}}),
-  db.appointment.groupBy({by:["professionalId"],where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PAID",startAt:{gte:monthStart}},_sum:{amountCents:true}}),
+  db.appointment.groupBy({by:["professionalId"],where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PAID",...paidInWindow(monthStart)},_sum:{amountCents:true}}),
   db.blockedDate.findMany({where:{shopId:shop.id},orderBy:{date:"asc"},take:90}),
   db.platformSettings.findUnique({where:{id:"main"}}),
   db.appointmentChange.findMany({where:{shopId:shop.id},orderBy:{createdAt:"desc"},take:40}),
@@ -53,13 +54,13 @@ export default async function Admin({searchParams}:{searchParams:Promise<{webhoo
  });
  const firstDay=fromZonedTime(chartDates[0]+"T00:00:00",shop.timezone);
  const [chartBookings,chartExpenses,monthServices]=await Promise.all([
-  db.appointment.findMany({where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PAID",startAt:{gte:firstDay}},select:{startAt:true,amountCents:true}}),
+  db.appointment.findMany({where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PAID",...paidInWindow(firstDay)},select:{startAt:true,paidAt:true,amountCents:true}}),
   db.expense.findMany({where:{shopId:shop.id,spentAt:{gte:firstDay}},select:{spentAt:true,amountCents:true}}),
-  db.appointment.findMany({where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PAID",startAt:{gte:monthStart}},select:{serviceId:true,amountCents:true}})
+  db.appointment.findMany({where:{shopId:shop.id,status:"COMPLETED",paymentStatus:"PAID",...paidInWindow(monthStart)},select:{serviceId:true,amountCents:true}})
  ]);
  const chartDays=chartDates.map(date=>({
   label:date.slice(8)+"/"+date.slice(5,7),
-  received:chartBookings.filter(b=>formatInTimeZone(b.startAt,shop.timezone,"yyyy-MM-dd")===date).reduce((n,b)=>n+b.amountCents,0),
+  received:chartBookings.filter(b=>formatInTimeZone(b.paidAt??b.startAt,shop.timezone,"yyyy-MM-dd")===date).reduce((n,b)=>n+b.amountCents,0),
   expenses:chartExpenses.filter(e=>formatInTimeZone(e.spentAt,shop.timezone,"yyyy-MM-dd")===date).reduce((n,e)=>n+e.amountCents,0)
  }));
  const serviceTotals=new Map<string,number>();
