@@ -1,24 +1,31 @@
 {
-  "name": "projeto-barbeiro",
-  "version": "0.1.0",
+  "name": "barbernex",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint ."
+    "typecheck": "tsc --noEmit",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
+    "master:create": "node scripts/create-master.mjs"
   },
   "dependencies": {
-    "next": "^15.5.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "@prisma/client": "^6.15.0",
+    "bcryptjs": "^2.4.3",
+    "date-fns-tz": "^3.2.0",
+    "next": "15.5.29",
+    "react": "19.1.10",
+    "react-dom": "19.1.10",
+    "lucide-react": "^0.468.0"
   },
   "devDependencies": {
-    "typescript": "^5.9.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "eslint": "^9.0.0",
-    "eslint-config-next": "^15.5.0"
+    "prisma": "^6.15.0",
+    "typescript": "^5.9.0"
   }
 }
