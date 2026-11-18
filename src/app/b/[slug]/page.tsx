@@ -1,0 +1,1 @@
+export default async function BarberPage({params}:{params:Promise<{slug:string}>}){const {slug}=await params;return <main><span className="pill">Página da barbearia</span><h1>{slug.replace(/-/g," ")}</h1><p>Esta página ainda não aceita agendamentos. O cadastro da barbearia, serviços e horários dependerá do banco de dados.</p></main>}
