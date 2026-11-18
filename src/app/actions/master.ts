@@ -1,4 +1,5 @@
 "use server";
+import {initialServices} from "@/lib/default-services";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import {requireMaster} from "@/lib/auth";
@@ -64,7 +65,7 @@ export async function createShopFromMaster(form:FormData){
  const [existingUser,existingShop]=await Promise.all([db.user.findUnique({where:{username}}),db.barbershop.findUnique({where:{slug}})]);
  if(existingUser||existingShop)redirect("/master?erro=existente#novo-cliente");
  const passwordHash=await bcrypt.hash(password,12);
- const shop=await db.barbershop.create({data:{name,slug,status:"PENDING",heroTitle:"Bem-vindo à "+name,heroSubtitle:"Agende seu horário online em poucos passos.",users:{create:{username,fullName,email,phone,passwordHash,role:"OWNER",mustChangePassword:true}},audits:{create:{actorId:actor.id,event:"BARBEARIA_CRIADA_PELO_MASTER"}}}});
+ const shop=await db.barbershop.create({data:{name,slug,status:"PENDING",heroTitle:"Bem-vindo à "+name,heroSubtitle:"Agende seu horário online em poucos passos.",users:{create:{username,fullName,email,phone,passwordHash,role:"OWNER",mustChangePassword:true}},services:{create:initialServices},audits:{create:{actorId:actor.id,event:"BARBEARIA_CRIADA_PELO_MASTER"}}}});
  revalidatePath("/master");
  redirect("/master/barbearias/"+shop.id+"?criada=1");
 }
