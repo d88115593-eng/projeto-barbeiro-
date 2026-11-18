@@ -18,11 +18,24 @@ export async function signIn(form:FormData){
  const username=str(form,"username",40).toLowerCase(),password=str(form,"password",200);
  const user=await db.user.findUnique({where:{username}});
  const matches=user?await bcrypt.compare(password,user.passwordHash):false;
- if(!matches||!user)redirect("/login?erro=credenciais");
+ if(!matches||!user||user.role!=="OWNER")redirect("/login?erro=credenciais");
  await createSession(user.id);
- redirect(user.role==="MASTER"?"/master":"/admin");
+ redirect("/admin");
 }
 export async function signOut(){
  await destroySession();
  redirect("/");
+}
+
+export async function signInMaster(form:FormData){
+ const username=str(form,"username",40).toLowerCase(),password=str(form,"password",200);
+ const user=await db.user.findUnique({where:{username}});
+ const matches=user&&user.role==="MASTER"?await bcrypt.compare(password,user.passwordHash):false;
+ if(!matches||!user)redirect("/master/login?erro=credenciais");
+ await createSession(user.id,true);
+ redirect("/master");
+}
+export async function signOutMaster(){
+ await destroySession(true);
+ redirect("/master/login");
 }

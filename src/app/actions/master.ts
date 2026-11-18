@@ -39,3 +39,17 @@ export async function resetOwnerPassword(form:FormData){
  ]);
  revalidatePath("/master");
 }
+
+export async function updatePlatformSupport(form:FormData){
+ const actor=await requireMaster();
+ const supportWhatsapp=str(form,"supportWhatsapp",22).replace(/\D/g,"");
+ const supportEmail=str(form,"supportEmail",160);
+ const supportMessage=str(form,"supportMessage",400);
+ if(supportWhatsapp && !/^\d{10,15}$/.test(supportWhatsapp))return;
+ if(supportEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supportEmail))return;
+ await db.$transaction([
+  db.platformSettings.upsert({where:{id:"main"},create:{id:"main",supportWhatsapp,supportEmail,supportMessage},update:{supportWhatsapp,supportEmail,supportMessage}}),
+  db.auditLog.create({data:{actorId:actor.id,event:"SUPORTE_ATUALIZADO"}})
+ ]);
+ revalidatePath("/master");revalidatePath("/admin");revalidatePath("/");
+}

@@ -97,6 +97,8 @@ model Professional {
   name String
   photoUrl String @default("")
   commissionPct Int @default(50)
+  slotIntervalMinutes Int @default(30)
+  maxDailyBookings Int @default(0)
   active Boolean @default(true)
   hours WorkingHour[]
   blockedDates BlockedDate[]
@@ -196,4 +198,12 @@ model AuditLog {
   event String
   createdAt DateTime @default(now())
   @@index([shopId,createdAt])
+}
+
+model PlatformSettings {
+  id String @id @default("main")
+  supportWhatsapp String @default("")
+  supportEmail String @default("")
+  supportMessage String @default("Precisa de ajuda com a BARBERNEX? Fale com nossa equipe.")
+  updatedAt DateTime @updatedAt
 }

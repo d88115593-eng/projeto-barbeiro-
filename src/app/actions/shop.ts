@@ -131,3 +131,11 @@ export async function removeBlockedDate(form:FormData){
  await db.blockedDate.deleteMany({where:{id,shopId:shop.id}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
+
+export async function updateSlotSettings(form:FormData){
+ const {shop}=await requireActiveOwner(),id=str(form,"professionalId",100);
+ const interval=Number(str(form,"slotIntervalMinutes",3)),limit=Number(str(form,"maxDailyBookings",3));
+ if(![15,30,45,60,90,120].includes(interval)||!Number.isInteger(limit)||limit<0||limit>100)return;
+ await db.professional.updateMany({where:{id,shopId:shop.id},data:{slotIntervalMinutes:interval,maxDailyBookings:limit}});
+ revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
+}

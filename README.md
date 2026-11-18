@@ -55,3 +55,13 @@ Se usar o Compose local, defina `POSTGRES_PASSWORD` no terminal e execute `docke
 
 ## Revisão contínua
 A GitHub Action em `.github/workflows/ci.yml` instala dependências, valida o schema, executa verificação TypeScript e tenta compilar o Next.js. Verifique o resultado da Action antes de considerar o commit aprovado.
+
+
+## Central Master separada e suporte editável
+- Acesse `/master/login` para o Master; o login comum `/login` aceita **somente proprietários**.
+- A autorização é validada no servidor em toda ação Master e a sessão Master usa cookie separado.
+- Para configurar o usuário **ADMIN**, defina `MASTER_USERNAME=ADMIN` e `MASTER_PASSWORD` como variável privada no servidor, e rode `npm run master:create`. **Nunca salve a senha no GitHub**.
+- Após alterar credenciais, reinicie sessões Master antigas conforme sua política de segurança.
+- O Master edita o WhatsApp, e-mail e mensagem de suporte em `/master#suporte`. O proprietário visualiza os canais em `/admin#suporte`.
+- Cada profissional pode ajustar o intervalo entre horários (15–120 minutos) e o limite diário de reservas. Um limite 0 significa ilimitado.
+- Depois da atualização do código, sincronize o schema com `npx prisma db push` em desenvolvimento, ou migração revisada em produção.
