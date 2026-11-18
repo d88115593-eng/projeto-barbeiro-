@@ -165,6 +165,7 @@ model Appointment {
   source BookingSource @default(ONLINE)
   status BookingStatus @default(CONFIRMED)
   paymentStatus PaymentStatus @default(PENDING)
+  paidAt DateTime?
   paymentMethod PaymentMethod @default(AT_SHOP)
   amountCents Int
   changes AppointmentChange[]
@@ -173,6 +174,7 @@ model Appointment {
   updatedAt DateTime @updatedAt
   @@index([professionalId,startAt,endAt])
   @@index([shopId,startAt])
+  @@index([shopId,paidAt])
 }
 model Expense {
   id String @id @default(cuid())
