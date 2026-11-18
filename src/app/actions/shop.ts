@@ -58,6 +58,7 @@ export async function editAppointmentFromOwner(form:FormData){
  if(!dayHours||startMinute<dayHours.startMinute||startMinute+service.durationMinutes>dayHours.endMinute)return;
  if(startAt.getTime()<Date.now()-60000&&booking.status==="CONFIRMED")return;
  if(await db.blockedDate.findFirst({where:{shopId:shop.id,date,OR:[{professionalId:null},{professionalId}]}}))return;
+ let changed=false;
  try{
  await db.$transaction(async tx=>{
   await tx.$queryRaw`SELECT "id" FROM "Professional" WHERE "id" = ${professionalId} FOR UPDATE`;
@@ -77,8 +78,10 @@ export async function editAppointmentFromOwner(form:FormData){
   if(JSON.stringify(before)===JSON.stringify(after))return;
   await tx.appointment.update({where:{id},data:{serviceId,professionalId,clientName,clientPhone,amountCents,startAt,endAt}});
   await tx.appointmentChange.create({data:{appointmentId:id,shopId:shop.id,actorId:user.id,beforeJson:before,afterJson:after,reason}});
+  changed=true;
  });
  }catch{return;}
+ if(changed)await sendBookingWebhook(shop.id,id,"booking.updated");
  revalidatePath("/admin");
 }
 export async function createService(form:FormData){
@@ -134,12 +137,19 @@ export async function registerWalkIn(form:FormData){
  revalidatePath("/admin");
 }
 export async function updateBooking(form:FormData){
- const {shop}=await requireActiveOwner(),id=str(form,"id",100),operation=str(form,"operation",20);
- const found=await db.appointment.findFirst({where:{id,shopId:shop.id}});if(!found)return;
- if(operation==="complete")await db.appointment.update({where:{id},data:{status:"COMPLETED"}});
- if(operation==="paid")await db.appointment.update({where:{id},data:{paymentStatus:"PAID"}});
- if(operation==="cancel" && found.status==="CONFIRMED")await db.appointment.update({where:{id},data:{status:"CANCELLED"}});
- if(operation==="no_show" && found.status==="CONFIRMED")await db.appointment.update({where:{id},data:{status:"NO_SHOW"}});
+ const {shop,user}=await requireActiveOwner(),id=str(form,"id",100),operation=str(form,"operation",20);
+ if(!["complete","paid","cancel","no_show"].includes(operation))return;
+ const changed=await db.$transaction(async tx=>{
+  const condition={id,shopId:shop.id};
+  let count=0;
+  if(operation==="complete")count=(await tx.appointment.updateMany({where:{...condition,status:"CONFIRMED"},data:{status:"COMPLETED"}})).count;
+  else if(operation==="paid")count=(await tx.appointment.updateMany({where:{...condition,status:"COMPLETED",paymentStatus:"PENDING"},data:{paymentStatus:"PAID"}})).count;
+  else if(operation==="cancel")count=(await tx.appointment.updateMany({where:{...condition,status:"CONFIRMED"},data:{status:"CANCELLED"}})).count;
+  else if(operation==="no_show")count=(await tx.appointment.updateMany({where:{...condition,status:"CONFIRMED"},data:{status:"NO_SHOW"}})).count;
+  if(count)await tx.auditLog.create({data:{shopId:shop.id,actorId:user.id,event:"AGENDAMENTO_"+operation.toUpperCase()}});
+  return count>0;
+ });
+ if(changed&&operation==="cancel")await sendBookingWebhook(shop.id,id,"booking.cancelled");
  revalidatePath("/admin");
 }
 export async function addExpense(form:FormData){
