@@ -227,3 +227,20 @@ export async function loadInitialServices(form:FormData){
  });
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
+
+/** Integração opcional com serviços de automação que aceitam webhooks HTTPS. */
+export async function updateNotificationIntegration(form:FormData){
+ const {shop}=await requireOwner();
+ const enabled=form.get("notificationWebhookEnabled")==="on";
+ const raw=str(form,"notificationWebhookUrl",1200).trim();
+ if(raw){
+  try{
+   const url=new URL(raw);
+   const hostname=url.hostname.toLowerCase();
+   if(url.protocol!=="https:"||url.username||url.password||url.port||hostname==="localhost"||hostname.endsWith(".local")||hostname.endsWith(".internal")||/^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(hostname)||hostname.includes(":")||!hostname.includes("."))return;
+  }catch{return;}
+ }
+ if(enabled&&!raw)return;
+ await db.barbershop.update({where:{id:shop.id},data:{notificationWebhookUrl:raw,notificationWebhookEnabled:enabled}});
+ revalidatePath("/admin");
+}
