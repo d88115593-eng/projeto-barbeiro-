@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import {fromZonedTime} from "date-fns-tz";
 import {db} from "@/lib/db";
 import {getAvailableSlots} from "@/lib/availability";
 import {str,onlyDigits} from "@/lib/format";
@@ -21,6 +22,17 @@ export async function bookOnline(form:FormData) {
  try{
   reference=await db.$transaction(async tx=>{
    await tx.$queryRaw`SELECT "id" FROM "Professional" WHERE "id" = ${professionalId} FOR UPDATE`;
+   const professional=await tx.professional.findFirst({where:{id:professionalId,shopId:shop.id,active:true}});
+   if(!professional)throw new Error("Profissional indisponível");
+   const holiday=await tx.blockedDate.findFirst({where:{shopId:shop.id,date,OR:[{professionalId:null},{professionalId}]}});
+   if(holiday)throw new Error("Data bloqueada");
+   if(professional.maxDailyBookings>0){
+    const dayStart=fromZonedTime(date+"T00:00:00",shop.timezone);
+    const tomorrow=new Date(Date.parse(date+"T00:00:00Z")+86400000).toISOString().slice(0,10);
+    const dayEnd=fromZonedTime(tomorrow+"T00:00:00",shop.timezone);
+    const count=await tx.appointment.count({where:{professionalId,shopId:shop.id,status:{in:["CONFIRMED","COMPLETED"]},startAt:{gte:dayStart,lt:dayEnd}}});
+    if(count>=professional.maxDailyBookings)throw new Error("Limite diário atingido");
+   }
    const busy=await tx.appointment.findFirst({where:{shopId:shop.id,professionalId,status:{in:["CONFIRMED","COMPLETED"]},startAt:{lt:slot.endAt},endAt:{gt:slot.startAt}}});
    if(busy)throw new Error("Horário ocupado");
    const booked=await tx.appointment.create({data:{shopId:shop.id,serviceId,professionalId,clientName,clientPhone,startAt:slot.startAt,endAt:slot.endAt,amountCents:service.priceCents,paymentMethod:payment as "PIX"|"AT_SHOP"}});

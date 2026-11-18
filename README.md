@@ -72,3 +72,8 @@ A GitHub Action em `.github/workflows/ci.yml` instala dependências, valida o sc
 - Os responsáveis podem alterar seus contatos no módulo 'Minha conta' e sua senha na tela própria. O Master pesquisa por nome, WhatsApp, usuário e e-mail.
 - Erros de banco ou ambiente exibem tela de recuperação em vez de tela quebrada. Antes de publicar, rodar migrações/esquema, configurar PostgreSQL e variáveis privadas, e monitorar logs.
 - Base44 e GitHub não se sincronizam automaticamente. Esta aplicação exige um runtime Node.js com PostgreSQL e armazenamento persistente de mídia.
+
+## Diagnóstico do aplicativo publicado
+- `GET /api/health` retorna status 200 quando a aplicação consegue consultar PostgreSQL, ou 503 quando não consegue. Não expõe credenciais.
+- O agendamento verifica novamente o limite diário de reservas e os bloqueios dentro da transação com o profissional bloqueado, evitando ultrapassar o limite em chamadas simultâneas.
+- Execute o banco atualizado antes de publicar uma nova versão da aplicação. Uma CI verde só valida uma instância de teste com o schema atualizado; não corrige automaticamente o banco da hospedagem real.
