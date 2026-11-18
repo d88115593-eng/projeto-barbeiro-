@@ -164,6 +164,7 @@ model Appointment {
   paymentStatus PaymentStatus @default(PENDING)
   paymentMethod PaymentMethod @default(AT_SHOP)
   amountCents Int
+  changes AppointmentChange[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([professionalId,startAt,endAt])
@@ -230,4 +231,18 @@ model PlatformSettings {
   supportEmail String @default("")
   supportMessage String @default("Precisa de ajuda com a BARBERNEX? Fale com nossa equipe.")
   updatedAt DateTime @updatedAt
+}
+
+model AppointmentChange {
+ id String @id @default(cuid())
+ appointmentId String
+ appointment Appointment @relation(fields:[appointmentId],references:[id],onDelete:Cascade)
+ shopId String
+ actorId String
+ beforeJson Json
+ afterJson Json
+ reason String @default("")
+ createdAt DateTime @default(now())
+ @@index([shopId,createdAt])
+ @@index([appointmentId,createdAt])
 }
