@@ -9,6 +9,12 @@ try{
  shopId=first.id;
  const other=await db.barbershop.create({data:{name:"Teste B",slug:"ci-"+randomUUID().slice(0,12)}});
  otherId=other.id;
+ const user=await db.user.create({data:{username:"ci-"+randomUUID().slice(0,12),passwordHash:"test-only",role:"OWNER",shopId,fullName:"Responsavel Teste",email:"teste@example.com",phone:"71999999999"}});
+ assert.equal(user.fullName,"Responsavel Teste","dados do responsável");
+ await db.user.update({where:{id:user.id},data:{mustChangePassword:true}});
+ assert.equal((await db.user.findUniqueOrThrow({where:{id:user.id}})).mustChangePassword,true,"recuperação de acesso master");
+ await db.platformSettings.upsert({where:{id:"main"},create:{id:"main",supportMessage:"Teste"},update:{supportMessage:"Teste"}});
+ assert.equal((await db.platformSettings.findUniqueOrThrow({where:{id:"main"}})).supportMessage,"Teste","suporte editável");
  const pro=await db.professional.create({data:{shopId,name:"Profissional",hours:{create:{weekday:2,startMinute:540,endMinute:1080}}}});
  const service=await db.service.create({data:{shopId,name:"Corte",priceCents:3500,durationMinutes:30}});
  assert.equal(await db.professional.findFirst({where:{id:pro.id,shopId:otherId}}),null,"isolamento por barbearia");
@@ -36,6 +42,7 @@ finally{
   await db.blockedDate.deleteMany({where:{shopId}});
   await db.professional.deleteMany({where:{shopId}});
   await db.service.deleteMany({where:{shopId}});
+  await db.user.deleteMany({where:{shopId}});
   await db.barbershop.delete({where:{id:shopId}});
  }
  if(otherId)await db.barbershop.delete({where:{id:otherId}});

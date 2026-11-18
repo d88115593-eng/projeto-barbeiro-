@@ -7,7 +7,7 @@ export const runtime="nodejs";
 const mimeToExt:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","video/mp4":"mp4"};
 export async function POST(req:NextRequest){
  const user=await currentUser();
- if(!user || user.role!=="OWNER" || !user.shop || user.shop.status!=="ACTIVE" || !user.shop.paidThrough || user.shop.paidThrough<new Date())return NextResponse.json({error:"Acesso não autorizado"},{status:403});
+ if(!user || user.role!=="OWNER" || !user.shop || user.shop.status==="SUSPENDED" || user.mustChangePassword)return NextResponse.json({error:"Acesso não autorizado"},{status:403});
  const form=await req.formData(),file=form.get("file");
  if(!(file instanceof File))return NextResponse.json({error:"Arquivo não enviado"},{status:400});
  const ext=mimeToExt[file.type];
