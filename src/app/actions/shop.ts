@@ -2,7 +2,7 @@
 import { revalidatePath } from "next/cache";
 import {db} from "@/lib/db";
 import {requireActiveOwner,requireOwner} from "@/lib/auth";
-import {moneyInput,str,urlOrBlank} from "@/lib/format";
+import {moneyInput,str,urlOrBlank,onlyDigits} from "@/lib/format";
 export async function updateSite(form:FormData) {
  const {shop}=await requireOwner();
  const name=str(form,"name",80),description=str(form,"description",2000),whatsapp=str(form,"whatsapp",20);
