@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import {fromZonedTime} from "date-fns-tz";
 import {db} from "@/lib/db";
 import {requireActiveOwner,requireOwner} from "@/lib/auth";
 import {moneyInput,str,urlOrBlank,onlyDigits} from "@/lib/format";
@@ -35,24 +36,44 @@ export async function updateMonthlyGoal(form:FormData){
  revalidatePath("/admin");
 }
 export async function editAppointmentFromOwner(form:FormData){
- const {shop}=await requireActiveOwner();
+ const {shop,user}=await requireActiveOwner();
  const id=str(form,"id",100),serviceId=str(form,"serviceId",100),professionalId=str(form,"professionalId",100);
  const clientName=str(form,"clientName",80),clientPhone=onlyDigits(str(form,"clientPhone",25));
- const amountCents=moneyInput(form,"amount");
- if(clientName.length<2||clientPhone.length<10||clientPhone.length>13||amountCents<0||amountCents>10000000)return;
+ const amountCents=moneyInput(form,"amount"),date=str(form,"date",10),hour=str(form,"hour",5),reason=str(form,"reason",250);
+ if(clientName.length<2||clientPhone.length<10||clientPhone.length>13||!Number.isSafeInteger(amountCents)||amountCents<0||amountCents>10000000||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)||!/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(hour)||reason.length<3)return;
+ const dateObj=new Date(date+"T00:00:00Z");
+ if(Number.isNaN(dateObj.getTime())||dateObj.toISOString().slice(0,10)!==date)return;
  const [booking,service,pro]=await Promise.all([
   db.appointment.findFirst({where:{id,shopId:shop.id}}),
-  db.service.findFirst({where:{id:serviceId,shopId:shop.id}}),
-  db.professional.findFirst({where:{id:professionalId,shopId:shop.id}})
+  db.service.findFirst({where:{id:serviceId,shopId:shop.id,active:true}}),
+  db.professional.findFirst({where:{id:professionalId,shopId:shop.id,active:true},include:{hours:true}})
  ]);
  if(!booking||!service||!pro||booking.status==="CANCELLED"||booking.status==="NO_SHOW")return;
- const startAt=booking.startAt,endAt=new Date(startAt.getTime()+service.durationMinutes*60000);
+ const startAt=fromZonedTime(date+"T"+hour+":00",shop.timezone),endAt=new Date(startAt.getTime()+service.durationMinutes*60000);
+ const dayHours=pro.hours.find(h=>h.weekday===dateObj.getUTCDay()&&h.enabled);
+ const startMinute=Number(hour.slice(0,2))*60+Number(hour.slice(3));
+ if(!dayHours||startMinute<dayHours.startMinute||startMinute+service.durationMinutes>dayHours.endMinute)return;
+ if(startAt.getTime()<Date.now()-60000&&booking.status==="CONFIRMED")return;
+ if(await db.blockedDate.findFirst({where:{shopId:shop.id,date,OR:[{professionalId:null},{professionalId}]}}))return;
  try{
  await db.$transaction(async tx=>{
   await tx.$queryRaw`SELECT "id" FROM "Professional" WHERE "id" = ${professionalId} FOR UPDATE`;
+  const current=await tx.appointment.findFirst({where:{id,shopId:shop.id}});
+  if(!current||current.status==="CANCELLED"||current.status==="NO_SHOW")throw new Error("Reserva indisponível");
   const overlap=await tx.appointment.findFirst({where:{id:{not:id},shopId:shop.id,professionalId,status:{in:["CONFIRMED","COMPLETED"]},startAt:{lt:endAt},endAt:{gt:startAt}}});
   if(overlap)throw new Error("Conflito de agenda");
-  await tx.appointment.update({where:{id},data:{serviceId,professionalId,clientName,clientPhone,amountCents,endAt}});
+  const changedDay=current.professionalId!==professionalId||current.startAt.getTime()!==startAt.getTime();
+  if(changedDay&&pro.maxDailyBookings>0){
+   const tomorrow=new Date(dateObj.getTime()+86400000).toISOString().slice(0,10);
+   const dayStart=fromZonedTime(date+"T00:00:00",shop.timezone),dayEnd=fromZonedTime(tomorrow+"T00:00:00",shop.timezone);
+   const count=await tx.appointment.count({where:{id:{not:id},shopId:shop.id,professionalId,status:{in:["CONFIRMED","COMPLETED"]},startAt:{gte:dayStart,lt:dayEnd}}});
+   if(count>=pro.maxDailyBookings)throw new Error("Limite diário");
+  }
+  const before={serviceId:current.serviceId,professionalId:current.professionalId,clientName:current.clientName,clientPhone:current.clientPhone,amountCents:current.amountCents,startAt:current.startAt.toISOString(),endAt:current.endAt.toISOString()};
+  const after={serviceId,professionalId,clientName,clientPhone,amountCents,startAt:startAt.toISOString(),endAt:endAt.toISOString()};
+  if(JSON.stringify(before)===JSON.stringify(after))return;
+  await tx.appointment.update({where:{id},data:{serviceId,professionalId,clientName,clientPhone,amountCents,startAt,endAt}});
+  await tx.appointmentChange.create({data:{appointmentId:id,shopId:shop.id,actorId:user.id,beforeJson:before,afterJson:after,reason}});
  });
  }catch{return;}
  revalidatePath("/admin");
