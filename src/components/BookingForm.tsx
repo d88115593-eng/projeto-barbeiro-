@@ -6,6 +6,15 @@ type Props={slug:string;timezone:string;professionals:Professional[];services:Se
 export function BookingForm({slug,timezone,professionals,services,pixEnabled,payAtShopEnabled}:Props){
  const [professionalId,setProfessionalId]=useState(professionals[0]?.id??"");
  const [serviceId,setServiceId]=useState(services[0]?.id??"");
+ useEffect(()=>{
+  const selectFromLink=()=>{
+   const requested=new URLSearchParams(window.location.search).get("servico");
+   if(requested&&services.some(service=>service.id===requested))setServiceId(requested);
+  };
+  selectFromLink();
+  window.addEventListener("popstate",selectFromLink);
+  return()=>window.removeEventListener("popstate",selectFromLink);
+ },[services]);
  const [date,setDate]=useState("");
  const [slots,setSlots]=useState<string[]>([]);
  const [hour,setHour]=useState("");
@@ -20,6 +29,7 @@ export function BookingForm({slug,timezone,professionals,services,pixEnabled,pay
  },[date,professionalId,serviceId,slug]);
  const minDate=new Date().toLocaleDateString("en-CA",{timeZone:timezone});
  return <form action={bookOnline} className="booking-form"><input type="hidden" name="slug" value={slug}/><input type="hidden" name="hour" value={hour}/>
+ {services.find(s=>s.id===serviceId)?.imageUrl&&<div className="booking-selected-service"><img src={services.find(s=>s.id===serviceId)?.imageUrl} alt={"Foto de "+services.find(s=>s.id===serviceId)?.name}/><div><small>CORTE SELECIONADO</small><strong>{services.find(s=>s.id===serviceId)?.name}</strong><span>Confira a foto e escolha seu horário abaixo.</span></div></div>}
  <div className="two-cols"><label>Serviço<select name="serviceId" value={serviceId} onChange={e=>setServiceId(e.target.value)} required>{services.map(x=><option key={x.id} value={x.id}>{x.name} • R$ {(x.priceCents/100).toFixed(2)} ({x.durationMinutes}min)</option>)}</select></label><label>Profissional<select name="professionalId" value={professionalId} onChange={e=>setProfessionalId(e.target.value)} required>{professionals.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label></div>
  <label>Escolha o dia<input type="date" name="date" value={date} min={minDate} onChange={e=>setDate(e.target.value)} required/></label>
  <div className="slot-area"><strong>Horários disponíveis</strong>{loading?<p>Consultando agenda...</p>:date?(slots.length?<div className="slot-grid">{slots.map(t=><button type="button" onClick={()=>setHour(t)} className={"slot "+(hour===t?"selected":"")} key={t}>{t}</button>)}</div>:<p>Nenhum horário disponível para esta data.</p>):<p>Selecione uma data para visualizar os horários.</p>}</div>
