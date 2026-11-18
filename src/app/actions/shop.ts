@@ -139,3 +139,18 @@ export async function updateSlotSettings(form:FormData){
  await db.professional.updateMany({where:{id,shopId:shop.id},data:{slotIntervalMinutes:interval,maxDailyBookings:limit}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
+
+export async function updateWeeklySchedule(form:FormData){
+ const {shop}=await requireActiveOwner(),professionalId=str(form,"professionalId",100);
+ const pro=await db.professional.findFirst({where:{id:professionalId,shopId:shop.id},select:{id:true}});
+ if(!pro)return;
+ const entries=[];
+ for(let weekday=0;weekday<7;weekday++){
+  const enabled=form.get("enabled_"+weekday)==="on";
+  const startMinute=toMinute(str(form,"start_"+weekday)),endMinute=toMinute(str(form,"end_"+weekday));
+  if(startMinute<0||endMinute<=startMinute||endMinute>1440)return;
+  entries.push({weekday,enabled,startMinute,endMinute});
+ }
+ await db.$transaction(entries.map(h=>db.workingHour.upsert({where:{professionalId_weekday:{professionalId,weekday:h.weekday}},create:{professionalId,...h},update:h})));
+ revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
+}
