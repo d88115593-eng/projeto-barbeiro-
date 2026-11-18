@@ -39,6 +39,12 @@ model Barbershop {
   slug String @unique
   name String
   description String @default("")
+  heroTitle String @default("Seu estilo começa aqui.")
+  heroSubtitle String @default("")
+  showServices Boolean @default(true)
+  showTeam Boolean @default(true)
+  showGallery Boolean @default(true)
+  showReviews Boolean @default(true)
   logoUrl String @default("")
   coverUrl String @default("")
   accentColor String @default("#2563FF")

@@ -2,8 +2,8 @@
 import {useEffect,useState} from "react";
 import {bookOnline} from "@/app/actions/booking";
 import type {Professional,Service} from "@prisma/client";
-type Props={slug:string;professionals:Professional[];services:Service[];pixEnabled:boolean;payAtShopEnabled:boolean};
-export function BookingForm({slug,professionals,services,pixEnabled,payAtShopEnabled}:Props){
+type Props={slug:string;timezone:string;professionals:Professional[];services:Service[];pixEnabled:boolean;payAtShopEnabled:boolean};
+export function BookingForm({slug,timezone,professionals,services,pixEnabled,payAtShopEnabled}:Props){
  const [professionalId,setProfessionalId]=useState(professionals[0]?.id??"");
  const [serviceId,setServiceId]=useState(services[0]?.id??"");
  const [date,setDate]=useState("");
@@ -18,7 +18,7 @@ export function BookingForm({slug,professionals,services,pixEnabled,payAtShopEna
   .then(r=>r.json()).then(data=>setSlots(data.slots||[])).catch(()=>setSlots([])).finally(()=>setLoading(false));
   return()=>controller.abort();
  },[date,professionalId,serviceId,slug]);
- const minDate=new Date().toLocaleDateString("en-CA",{timeZone:"America/Bahia"});
+ const minDate=new Date().toLocaleDateString("en-CA",{timeZone:timezone});
  return <form action={bookOnline} className="booking-form"><input type="hidden" name="slug" value={slug}/><input type="hidden" name="hour" value={hour}/>
  <div className="two-cols"><label>Serviço<select name="serviceId" value={serviceId} onChange={e=>setServiceId(e.target.value)} required>{services.map(x=><option key={x.id} value={x.id}>{x.name} • R$ {(x.priceCents/100).toFixed(2)} ({x.durationMinutes}min)</option>)}</select></label><label>Profissional<select name="professionalId" value={professionalId} onChange={e=>setProfessionalId(e.target.value)} required>{professionals.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label></div>
  <label>Escolha o dia<input type="date" name="date" value={date} min={minDate} onChange={e=>setDate(e.target.value)} required/></label>

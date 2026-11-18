@@ -10,6 +10,10 @@ export async function updateSite(form:FormData) {
  if(name.length<3)return;
  await db.barbershop.update({where:{id:shop.id},data:{
   name,description,whatsapp,address:str(form,"address",300),instagram:str(form,"instagram",120),
+  heroTitle:str(form,"heroTitle",140)||"Seu estilo começa aqui.",heroSubtitle:str(form,"heroSubtitle",400),
+  showServices:form.get("showServices")==="on",showTeam:form.get("showTeam")==="on",
+  showGallery:form.get("showGallery")==="on",showReviews:form.get("showReviews")==="on",
+  timezone:["America/Bahia","America/Sao_Paulo","America/Belem","America/Manaus","America/Cuiaba","America/Porto_Velho","America/Rio_Branco"].includes(str(form,"timezone",40))?str(form,"timezone",40):"America/Bahia",
   logoUrl:urlOrBlank(str(form,"logoUrl",800)),coverUrl:urlOrBlank(str(form,"coverUrl",800)),
   accentColor:/^#[0-9a-f]{6}$/i.test(color)?color:"#2563FF",
   pixKey:str(form,"pixKey",180),pixEnabled:form.get("pixEnabled")==="on",
