@@ -100,3 +100,20 @@ export async function updateSalesSettings(form:FormData){
  await db.$transaction([db.platformSettings.upsert({where:{id:"main"},create:{id:"main",...data},update:data}),db.auditLog.create({data:{actorId:actor.id,event:"PAGINA_DE_VENDAS_ATUALIZADA"}})]);
  revalidatePath("/");revalidatePath("/master");revalidatePath("/assinar");
 }
+
+export async function updateShopSiteFromMaster(form:FormData){
+ const actor=await requireMaster(),shopId=str(form,"shopId",100);
+ const shop=await db.barbershop.findUnique({where:{id:shopId},select:{slug:true}});
+ if(!shop)return;
+ const name=str(form,"heroTitle",150),subtitle=str(form,"heroSubtitle",400),description=str(form,"description",1000);
+ const instagram=str(form,"instagram",150),logoUrl=str(form,"logoUrl",600),coverUrl=str(form,"coverUrl",600);
+ const accentColor=str(form,"accentColor",7);
+ const pixKey=str(form,"pixKey",180),pixRecipientName=str(form,"pixRecipientName",80);
+ if(!/^#[0-9a-fA-F]{6}$/.test(accentColor)||name.length<3)return;
+ const validImage=(v:string)=>!v||v.startsWith("/api/media/")||/^https:\/\/[^\s]+$/i.test(v);
+ if(!validImage(logoUrl)||!validImage(coverUrl))return;
+ const pixEnabled=form.get("pixEnabled")==="on";
+ if(pixEnabled&&(!pixKey||!pixRecipientName))return;
+ await db.$transaction([db.barbershop.update({where:{id:shopId},data:{heroTitle:name,heroSubtitle:subtitle,description,instagram,logoUrl,coverUrl,accentColor,pixKey,pixRecipientName,pixEnabled,payAtShopEnabled:form.get("payAtShopEnabled")==="on"}}),db.auditLog.create({data:{actorId:actor.id,shopId,event:"SITE_E_PAGAMENTO_EDITADOS_PELO_MASTER"}})]);
+ revalidatePath("/master/barbearias/"+shopId);revalidatePath("/b/"+shop.slug);
+}
