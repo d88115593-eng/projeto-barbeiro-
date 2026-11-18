@@ -134,7 +134,8 @@ export async function registerWalkIn(form:FormData){
  if(!pro||!service)return;
  const clientName=str(form,"clientName",80)||"Cliente avulso",clientPhone=str(form,"clientPhone",25);
  const startAt=new Date(),endAt=new Date(startAt.getTime()+service.durationMinutes*60000);
- await db.appointment.create({data:{shopId:shop.id,professionalId,serviceId,clientName,clientPhone,startAt,endAt,amountCents:service.priceCents,source:"WALK_IN",status:"COMPLETED",paymentStatus:form.get("paid")==="on"?"PAID":"PENDING",paymentMethod:"AT_SHOP"}});
+ const paid=form.get("paid")==="on";
+ await db.appointment.create({data:{shopId:shop.id,professionalId,serviceId,clientName,clientPhone,startAt,endAt,amountCents:service.priceCents,source:"WALK_IN",status:"COMPLETED",paymentStatus:paid?"PAID":"PENDING",paidAt:paid?startAt:null,paymentMethod:"AT_SHOP"}});
  revalidatePath("/admin");
 }
 export async function updateBooking(form:FormData){
@@ -144,7 +145,7 @@ export async function updateBooking(form:FormData){
   const condition={id,shopId:shop.id};
   let count=0;
   if(operation==="complete")count=(await tx.appointment.updateMany({where:{...condition,status:"CONFIRMED"},data:{status:"COMPLETED"}})).count;
-  else if(operation==="paid")count=(await tx.appointment.updateMany({where:{...condition,status:"COMPLETED",paymentStatus:"PENDING"},data:{paymentStatus:"PAID"}})).count;
+  else if(operation==="paid")count=(await tx.appointment.updateMany({where:{...condition,status:"COMPLETED",paymentStatus:"PENDING"},data:{paymentStatus:"PAID",paidAt:new Date()}})).count;
   else if(operation==="cancel")count=(await tx.appointment.updateMany({where:{...condition,status:"CONFIRMED"},data:{status:"CANCELLED"}})).count;
   else if(operation==="no_show")count=(await tx.appointment.updateMany({where:{...condition,status:"CONFIRMED"},data:{status:"NO_SHOW"}})).count;
   if(count)await tx.auditLog.create({data:{shopId:shop.id,actorId:user.id,event:"AGENDAMENTO_"+operation.toUpperCase()}});
