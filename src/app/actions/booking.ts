@@ -9,8 +9,9 @@ export async function bookOnline(form:FormData) {
  const slug=str(form,"slug",40),serviceId=str(form,"serviceId",100),professionalId=str(form,"professionalId",100),date=str(form,"date",10),hour=str(form,"hour",5);
  const clientName=str(form,"clientName",80),clientPhone=onlyDigits(str(form,"clientPhone",25));
  const payment=str(form,"payment",10);
+ if(str(form,"website",100))redirect("/b/"+slug+"?erro=dados");
  const shop=await db.barbershop.findUnique({where:{slug}});
- if(!shop || !/^[a-zA-ZÀ-ÿ ]{2,80}$/.test(clientName) || clientPhone.length<10 || clientPhone.length>13)redirect("/b/"+slug+"?erro=dados");
+ if(!shop || !/^[\p{L}][\p{L}\p{M} .'-]{1,79}$/u.test(clientName) || clientPhone.length<10 || clientPhone.length>13)redirect("/b/"+slug+"?erro=dados");
  if(payment!=="PIX" && payment!=="AT_SHOP")redirect("/b/"+slug+"?erro=pagamento");
  if((payment==="PIX"&&!shop.pixEnabled) ||(payment==="AT_SHOP"&&!shop.payAtShopEnabled))redirect("/b/"+slug+"?erro=pagamento");
  const slots=await getAvailableSlots(shop.id,professionalId,serviceId,date);
@@ -25,6 +26,9 @@ export async function bookOnline(form:FormData) {
   reference=await db.$transaction(async tx=>{
    await tx.$queryRaw`SELECT "id" FROM "Professional" WHERE "id" = ${professionalId} FOR UPDATE`;
    const professional=await tx.professional.findFirst({where:{id:professionalId,shopId:shop.id,active:true}});
+   // Per-number anti-spam guard: no more than three online reservations per 10 minutes.
+   const recent=await tx.appointment.count({where:{shopId:shop.id,clientPhone,source:"ONLINE",createdAt:{gte:new Date(Date.now()-10*60000)}}});
+   if(recent>=3)throw new Error("Limite temporário de reservas");
    if(!professional)throw new Error("Profissional indisponível");
    const holiday=await tx.blockedDate.findFirst({where:{shopId:shop.id,date,OR:[{professionalId:null},{professionalId}]}});
    if(holiday)throw new Error("Data bloqueada");
