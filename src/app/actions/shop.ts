@@ -1,10 +1,10 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import {db} from "@/lib/db";
-import {requireActiveOwner} from "@/lib/auth";
+import {requireActiveOwner,requireOwner} from "@/lib/auth";
 import {moneyInput,str,urlOrBlank} from "@/lib/format";
 export async function updateSite(form:FormData) {
- const {shop}=await requireActiveOwner();
+ const {shop}=await requireOwner();
  const name=str(form,"name",80),description=str(form,"description",2000),whatsapp=str(form,"whatsapp",20);
  const color=str(form,"accentColor",7);
  if(name.length<3)return;
@@ -25,7 +25,7 @@ export async function updateSite(form:FormData) {
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function createService(form:FormData){
- const {shop}=await requireActiveOwner();
+ const {shop}=await requireOwner();
  const name=str(form,"name",75),duration=Number(str(form,"durationMinutes",4)),description=str(form,"description",300);
  if(name.length<2 || !Number.isInteger(duration) || duration<15 || duration>360)return;
  const priceCents=moneyInput(form,"price");
@@ -33,13 +33,13 @@ export async function createService(form:FormData){
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function toggleService(form:FormData){
- const {shop}=await requireActiveOwner(),id=str(form,"id",100);
+ const {shop}=await requireOwner(),id=str(form,"id",100);
  const service=await db.service.findFirst({where:{id,shopId:shop.id}});if(!service)return;
  await db.service.update({where:{id},data:{active:!service.active}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function createProfessional(form:FormData){
- const {shop}=await requireActiveOwner();
+ const {shop}=await requireOwner();
  const name=str(form,"name",80),commissionPct=Number(str(form,"commissionPct",3));
  if(name.length<2 || !Number.isInteger(commissionPct) || commissionPct<0 || commissionPct>100)return;
  const hours=[1,2,3,4,5,6].map(weekday=>({weekday,startMinute:540,endMinute:1080}));
@@ -47,7 +47,7 @@ export async function createProfessional(form:FormData){
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function toggleProfessional(form:FormData){
- const {shop}=await requireActiveOwner(),id=str(form,"id",100);
+ const {shop}=await requireOwner(),id=str(form,"id",100);
  const pro=await db.professional.findFirst({where:{id,shopId:shop.id}});if(!pro)return;
  await db.professional.update({where:{id},data:{active:!pro.active}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
@@ -57,7 +57,7 @@ const toMinute=(value:string)=>{
  const [h,m]=value.split(":").map(Number);return h*60+m;
 };
 export async function updateSchedule(form:FormData){
- const {shop}=await requireActiveOwner(),professionalId=str(form,"professionalId",100),weekday=Number(str(form,"weekday",2));
+ const {shop}=await requireOwner(),professionalId=str(form,"professionalId",100),weekday=Number(str(form,"weekday",2));
  const startMinute=toMinute(str(form,"start")),endMinute=toMinute(str(form,"end"));
  if(!Number.isInteger(weekday)||weekday<0||weekday>6||startMinute<0||endMinute<=startMinute||endMinute>1440)return;
  const pro=await db.professional.findFirst({where:{id:professionalId,shopId:shop.id}});
@@ -91,38 +91,38 @@ export async function addExpense(form:FormData){
  revalidatePath("/admin");
 }
 export async function addReview(form:FormData){
- const {shop}=await requireActiveOwner(),clientName=str(form,"clientName",80),message=str(form,"message",500),rating=Number(str(form,"rating",1));
+ const {shop}=await requireOwner(),clientName=str(form,"clientName",80),message=str(form,"message",500),rating=Number(str(form,"rating",1));
  if(clientName.length<2||message.length<5||!Number.isInteger(rating)||rating<1||rating>5)return;
  await db.review.create({data:{shopId:shop.id,clientName,message,rating,photoUrl:urlOrBlank(str(form,"photoUrl",800)),approved:true}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function addMedia(form:FormData){
- const {shop}=await requireActiveOwner(),url=urlOrBlank(str(form,"url",900)),caption=str(form,"caption",180),type=str(form,"type",10);
+ const {shop}=await requireOwner(),url=urlOrBlank(str(form,"url",900)),caption=str(form,"caption",180),type=str(form,"type",10);
  if(!url||!["IMAGE","VIDEO"].includes(type))return;
  await db.media.create({data:{shopId:shop.id,url,caption,type}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function removeMedia(form:FormData){
- const {shop}=await requireActiveOwner(),id=str(form,"id",100);
+ const {shop}=await requireOwner(),id=str(form,"id",100);
  await db.media.deleteMany({where:{id,shopId:shop.id}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 
 export async function updateProfessional(form:FormData){
- const {shop}=await requireActiveOwner(),id=str(form,"id",100),name=str(form,"name",80),commissionPct=Number(str(form,"commissionPct",3));
+ const {shop}=await requireOwner(),id=str(form,"id",100),name=str(form,"name",80),commissionPct=Number(str(form,"commissionPct",3));
  if(name.length<2||!Number.isInteger(commissionPct)||commissionPct<0||commissionPct>100)return;
  await db.professional.updateMany({where:{id,shopId:shop.id},data:{name,commissionPct,photoUrl:urlOrBlank(str(form,"photoUrl",800))}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function updateService(form:FormData){
- const {shop}=await requireActiveOwner(),id=str(form,"id",100),name=str(form,"name",80),duration=Number(str(form,"durationMinutes",4));
+ const {shop}=await requireOwner(),id=str(form,"id",100),name=str(form,"name",80),duration=Number(str(form,"durationMinutes",4));
  if(name.length<2||!Number.isInteger(duration)||duration<15||duration>360)return;
  const priceCents=moneyInput(form,"price");
  await db.service.updateMany({where:{id,shopId:shop.id},data:{name,priceCents,durationMinutes:duration,description:str(form,"description",300)}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function addBlockedDate(form:FormData){
- const {shop}=await requireActiveOwner(),date=str(form,"date",10),raw=str(form,"professionalId",100);
+ const {shop}=await requireOwner(),date=str(form,"date",10),raw=str(form,"professionalId",100);
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date+"T00:00:00Z")))return;
  const professionalId=raw==="ALL"?null:raw;
  if(professionalId && !await db.professional.findFirst({where:{id:professionalId,shopId:shop.id}}))return;
@@ -130,13 +130,13 @@ export async function addBlockedDate(form:FormData){
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function removeBlockedDate(form:FormData){
- const {shop}=await requireActiveOwner(),id=str(form,"id",100);
+ const {shop}=await requireOwner(),id=str(form,"id",100);
  await db.blockedDate.deleteMany({where:{id,shopId:shop.id}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 
 export async function updateSlotSettings(form:FormData){
- const {shop}=await requireActiveOwner(),id=str(form,"professionalId",100);
+ const {shop}=await requireOwner(),id=str(form,"professionalId",100);
  const interval=Number(str(form,"slotIntervalMinutes",3)),limit=Number(str(form,"maxDailyBookings",3));
  if(![15,30,45,60,90,120].includes(interval)||!Number.isInteger(limit)||limit<0||limit>100)return;
  await db.professional.updateMany({where:{id,shopId:shop.id},data:{slotIntervalMinutes:interval,maxDailyBookings:limit}});
@@ -144,7 +144,7 @@ export async function updateSlotSettings(form:FormData){
 }
 
 export async function updateWeeklySchedule(form:FormData){
- const {shop}=await requireActiveOwner(),professionalId=str(form,"professionalId",100);
+ const {shop}=await requireOwner(),professionalId=str(form,"professionalId",100);
  const pro=await db.professional.findFirst({where:{id:professionalId,shopId:shop.id},select:{id:true}});
  if(!pro)return;
  const entries=[];

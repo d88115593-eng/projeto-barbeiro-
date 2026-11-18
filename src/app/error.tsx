@@ -1,0 +1,3 @@
+"use client";
+import Link from "next/link";
+export default function Error({error,reset}:{error:Error & {digest?:string};reset:()=>void}){return <div className="auth-wrap"><div className="auth-card"><span className="eyebrow">BARBERNEX • CONEXÃO</span><h1>Não conseguimos abrir esta área.</h1><p>Não apagamos seus dados. Pode ter ocorrido uma falha temporária de conexão ou configuração do banco de dados. Tente novamente ou volte ao início.</p><div className="hero-actions"><button className="button" onClick={reset}>Tentar novamente</button><Link className="button button-ghost" href="/">Voltar ao início</Link></div>{error.digest&&<p className="fineprint">Código de referência: {error.digest}</p>}</div></div>}

@@ -1,0 +1,3 @@
+"use client";
+import {useEffect,useState} from "react";
+export function MasterShopSearch(){const [query,setQuery]=useState("");useEffect(()=>{const items=document.querySelectorAll<HTMLElement>(".shop-master-list .master-shop");for(const item of items)item.hidden=!item.dataset.shopSearch?.includes(query.trim().toLowerCase())},[query]);return <div className="search-toolbar"><label>Pesquisar barbearia, nome, usuário, telefone ou e-mail<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Pesquisar clientes BARBERNEX..."/></label><small>Os resultados são filtrados conforme você digita.</small></div>}

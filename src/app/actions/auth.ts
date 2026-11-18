@@ -48,7 +48,21 @@ export async function changeOwnPassword(form:FormData){
  if(!user||user.role!=="OWNER")redirect("/login");
  const password=str(form,"password",200),confirm=str(form,"confirm",200);
  if(password.length<12||password!==confirm)redirect("/alterar-senha?erro=dados");
+ if(!user.mustChangePassword){const oldPassword=str(form,"oldPassword",200);
+  const ok=await bcrypt.compare(oldPassword,user.passwordHash);
+  if(!ok)redirect("/alterar-senha?erro=atual");
+ }
  const passwordHash=await bcrypt.hash(password,12);
  await db.$transaction([db.user.update({where:{id:user.id},data:{passwordHash,mustChangePassword:false}}),db.session.deleteMany({where:{userId:user.id}})]);
  redirect("/login?senha=alterada");
+}
+
+export async function updateOwnerContact(form:FormData){
+ const {requireOwner}=await import("@/lib/auth");
+ const {user}=await requireOwner();
+ const fullName=str(form,"fullName",120),email=str(form,"email",160).toLowerCase(),phone=str(form,"phone",22).replace(/\D/g,"");
+ if(fullName.length<5||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||phone.length<10||phone.length>13)return;
+ await db.user.update({where:{id:user.id},data:{fullName,email,phone}});
+ const {revalidatePath}=await import("next/cache");
+ revalidatePath("/admin");revalidatePath("/master");
 }

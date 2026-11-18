@@ -65,3 +65,10 @@ A GitHub Action em `.github/workflows/ci.yml` instala dependências, valida o sc
 - O Master edita o WhatsApp, e-mail e mensagem de suporte em `/master#suporte`. O proprietário visualiza os canais em `/admin#suporte`.
 - Cada profissional pode ajustar o intervalo entre horários (15–120 minutos) e o limite diário de reservas. Um limite 0 significa ilimitado.
 - Depois da atualização do código, sincronize o schema com `npx prisma db push` em desenvolvimento, ou migração revisada em produção.
+
+## Navegação e configuração pré-ativação
+- Painéis renovados com visão geral e cartões de acesso rápido; as funcionalidades anteriores permanecem nos módulos da barra lateral. Os painéis não devem ser importados parcialmente por geradores externos.
+- Novas barbearias em estado PENDING podem configurar site, serviços, equipe, horários, bloqueios, galeria e feedbacks enquanto aguardam a assinatura. O agendamento público e operações de recebimento permanecem condicionados à assinatura ativa.
+- Os responsáveis podem alterar seus contatos no módulo 'Minha conta' e sua senha na tela própria. O Master pesquisa por nome, WhatsApp, usuário e e-mail.
+- Erros de banco ou ambiente exibem tela de recuperação em vez de tela quebrada. Antes de publicar, rodar migrações/esquema, configurar PostgreSQL e variáveis privadas, e monitorar logs.
+- Base44 e GitHub não se sincronizam automaticamente. Esta aplicação exige um runtime Node.js com PostgreSQL e armazenamento persistente de mídia.
