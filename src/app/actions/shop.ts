@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import {fromZonedTime} from "date-fns-tz";
+import {initialServices} from "@/lib/default-services";
 import {db} from "@/lib/db";
 import {requireActiveOwner,requireOwner} from "@/lib/auth";
 import {moneyInput,str,urlOrBlank,onlyDigits} from "@/lib/format";
@@ -213,5 +214,16 @@ export async function updateWeeklySchedule(form:FormData){
   entries.push({weekday,enabled,startMinute,endMinute});
  }
  await db.$transaction(entries.map(h=>db.workingHour.upsert({where:{professionalId_weekday:{professionalId,weekday:h.weekday}},create:{professionalId,...h},update:h})));
+ revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
+}
+
+/** Aplicar somente quando a barbearia ainda não possui serviços, sem restaurar itens removidos. */
+export async function loadInitialServices(form:FormData){
+ const {shop}=await requireOwner();
+ await db.$transaction(async tx=>{
+  await tx.$queryRaw`SELECT "id" FROM "Barbershop" WHERE "id" = ${shop.id} FOR UPDATE`;
+  if(await tx.service.count({where:{shopId:shop.id}}))return;
+  await tx.service.createMany({data:initialServices.map(service=>({...service,shopId:shop.id}))});
+ });
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
