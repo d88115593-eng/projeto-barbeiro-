@@ -6,6 +6,22 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -13,15 +29,13 @@ jobs:
           node-version: '22'
       - name: Instalar dependências
         run: npm install --no-audit --no-fund
-      - name: Validar banco
+      - name: Validar esquema do banco
         run: npx prisma validate
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
+      - name: Gerar cliente e banco de testes
+        run: npx prisma generate && npx prisma db push
+      - name: Testar banco, agenda e isolamento
+        run: node scripts/smoke-test.mjs
       - name: Verificar tipos
-        run: npx prisma generate && npm run typecheck
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
+        run: npm run typecheck
       - name: Compilar aplicação
         run: npm run build
-        env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
