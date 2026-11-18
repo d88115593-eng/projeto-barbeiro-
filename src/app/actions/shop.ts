@@ -8,6 +8,8 @@ export async function updateSite(form:FormData) {
  const name=str(form,"name",80),description=str(form,"description",2000),whatsapp=str(form,"whatsapp",20);
  const color=str(form,"accentColor",7);
  if(name.length<3)return;
+ const pixKey=str(form,"pixKey",180),pixRecipientName=str(form,"pixRecipientName",80);
+ if(form.get("pixEnabled")==="on" && (!pixKey||!pixRecipientName))return;
  await db.barbershop.update({where:{id:shop.id},data:{
   name,description,whatsapp,address:str(form,"address",300),instagram:str(form,"instagram",120),
   heroTitle:str(form,"heroTitle",140)||"Seu estilo começa aqui.",heroSubtitle:str(form,"heroSubtitle",400),
@@ -17,7 +19,7 @@ export async function updateSite(form:FormData) {
   logoUrl:urlOrBlank(str(form,"logoUrl",800)),coverUrl:urlOrBlank(str(form,"coverUrl",800)),
   logoStyle:["CARD","ROUND","MINIMAL"].includes(str(form,"logoStyle",12))?str(form,"logoStyle",12):"CARD",
   accentColor:/^#[0-9a-f]{6}$/i.test(color)?color:"#2563FF",
-  pixKey:str(form,"pixKey",180),pixRecipientName:str(form,"pixRecipientName",80),pixEnabled:form.get("pixEnabled")==="on" && !!str(form,"pixKey",180) && !!str(form,"pixRecipientName",80),
+  pixKey,pixRecipientName,pixEnabled:form.get("pixEnabled")==="on",
   payAtShopEnabled:form.get("payAtShopEnabled")==="on",
  }});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);

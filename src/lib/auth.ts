@@ -40,6 +40,7 @@ export async function requireOwner() {
  const user = await currentUser();
  if (!user) redirect("/login");
  if (user.role !== "OWNER" || !user.shopId || !user.shop) redirect("/login");
+ if(user.mustChangePassword)redirect("/alterar-senha");
  return { user, shop: user.shop };
 }
 export async function requireActiveOwner() {
