@@ -6,12 +6,15 @@ import {moneyInput,str,urlOrBlank} from "@/lib/format";
 export async function updateSite(form:FormData) {
  const {shop}=await requireOwner();
  const name=str(form,"name",80),description=str(form,"description",2000),whatsapp=str(form,"whatsapp",20);
+ const slug=str(form,"slug",40).toLowerCase();
+ if(!/^[a-z0-9-]{3,40}$/.test(slug))return;
+ if(slug!==shop.slug&&await db.barbershop.findUnique({where:{slug}}))return;
  const color=str(form,"accentColor",7);
  if(name.length<3)return;
  const pixKey=str(form,"pixKey",180),pixRecipientName=str(form,"pixRecipientName",80);
  if(form.get("pixEnabled")==="on" && (!pixKey||!pixRecipientName))return;
  await db.barbershop.update({where:{id:shop.id},data:{
-  name,description,whatsapp,address:str(form,"address",300),instagram:str(form,"instagram",120),
+  name,slug,description,whatsapp,address:str(form,"address",300),instagram:str(form,"instagram",120),
   heroTitle:str(form,"heroTitle",140)||"Seu estilo começa aqui.",heroSubtitle:str(form,"heroSubtitle",400),
   showServices:form.get("showServices")==="on",showTeam:form.get("showTeam")==="on",
   showGallery:form.get("showGallery")==="on",showReviews:form.get("showReviews")==="on",
@@ -22,7 +25,37 @@ export async function updateSite(form:FormData) {
   pixKey,pixRecipientName,pixEnabled:form.get("pixEnabled")==="on",
   payAtShopEnabled:form.get("payAtShopEnabled")==="on",
  }});
- revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
+ revalidatePath("/admin");revalidatePath("/b/"+shop.slug);revalidatePath("/b/"+slug);
+}
+export async function updateMonthlyGoal(form:FormData){
+ const {shop}=await requireOwner();
+ const monthlyGoalCents=moneyInput(form,"monthlyGoal");
+ if(!Number.isSafeInteger(monthlyGoalCents)||monthlyGoalCents<0||monthlyGoalCents>100000000)return;
+ await db.barbershop.update({where:{id:shop.id},data:{monthlyGoalCents}});
+ revalidatePath("/admin");
+}
+export async function editAppointmentFromOwner(form:FormData){
+ const {shop}=await requireActiveOwner();
+ const id=str(form,"id",100),serviceId=str(form,"serviceId",100),professionalId=str(form,"professionalId",100);
+ const clientName=str(form,"clientName",80),clientPhone=onlyDigits(str(form,"clientPhone",25));
+ const amountCents=moneyInput(form,"amount");
+ if(clientName.length<2||clientPhone.length<10||clientPhone.length>13||amountCents<0||amountCents>10000000)return;
+ const [booking,service,pro]=await Promise.all([
+  db.appointment.findFirst({where:{id,shopId:shop.id}}),
+  db.service.findFirst({where:{id:serviceId,shopId:shop.id}}),
+  db.professional.findFirst({where:{id:professionalId,shopId:shop.id}})
+ ]);
+ if(!booking||!service||!pro||booking.status==="CANCELLED"||booking.status==="NO_SHOW")return;
+ const startAt=booking.startAt,endAt=new Date(startAt.getTime()+service.durationMinutes*60000);
+ try{
+ await db.$transaction(async tx=>{
+  await tx.$queryRaw`SELECT "id" FROM "Professional" WHERE "id" = ${professionalId} FOR UPDATE`;
+  const overlap=await tx.appointment.findFirst({where:{id:{not:id},shopId:shop.id,professionalId,status:{in:["CONFIRMED","COMPLETED"]},startAt:{lt:endAt},endAt:{gt:startAt}}});
+  if(overlap)throw new Error("Conflito de agenda");
+  await tx.appointment.update({where:{id},data:{serviceId,professionalId,clientName,clientPhone,amountCents,endAt}});
+ });
+ }catch{return;}
+ revalidatePath("/admin");
 }
 export async function createService(form:FormData){
  const {shop}=await requireOwner();
