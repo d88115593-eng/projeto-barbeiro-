@@ -28,8 +28,10 @@ export async function createService(form:FormData){
  const {shop}=await requireOwner();
  const name=str(form,"name",75),duration=Number(str(form,"durationMinutes",4)),description=str(form,"description",300);
  if(name.length<2 || !Number.isInteger(duration) || duration<15 || duration>360)return;
+ const imageUrl=str(form,"imageUrl",600);
+ if(imageUrl&&!imageUrl.startsWith("/api/media/")&&!/^https:\/\/[^\s]+$/i.test(imageUrl))return;
  const priceCents=moneyInput(form,"price");
- await db.service.create({data:{shopId:shop.id,name,description,durationMinutes:duration,priceCents}});
+ await db.service.create({data:{shopId:shop.id,name,description,imageUrl,durationMinutes:duration,priceCents}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function toggleService(form:FormData){
@@ -117,8 +119,10 @@ export async function updateProfessional(form:FormData){
 export async function updateService(form:FormData){
  const {shop}=await requireOwner(),id=str(form,"id",100),name=str(form,"name",80),duration=Number(str(form,"durationMinutes",4));
  if(name.length<2||!Number.isInteger(duration)||duration<15||duration>360)return;
+ const imageUrl=str(form,"imageUrl",600);
+ if(imageUrl&&!imageUrl.startsWith("/api/media/")&&!/^https:\/\/[^\s]+$/i.test(imageUrl))return;
  const priceCents=moneyInput(form,"price");
- await db.service.updateMany({where:{id,shopId:shop.id},data:{name,priceCents,durationMinutes:duration,description:str(form,"description",300)}});
+ await db.service.updateMany({where:{id,shopId:shop.id},data:{name,priceCents,imageUrl,durationMinutes:duration,description:str(form,"description",300)}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
 export async function addBlockedDate(form:FormData){
