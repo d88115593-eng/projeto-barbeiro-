@@ -113,6 +113,7 @@ model Professional {
 }
 model Service {
   id String @id @default(cuid())
+  imageUrl String @default("")
   shopId String
   shop Barbershop @relation(fields:[shopId],references:[id],onDelete:Cascade)
   name String
