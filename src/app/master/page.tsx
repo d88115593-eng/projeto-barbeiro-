@@ -1,0 +1,1 @@
+export default function Master(){return <main><span className="pill">Painel Master</span><h1>Administração da plataforma</h1><p>Área reservada. O painel operacional e a autenticação segura ainda não foram implementados. Nenhum dado de clientes é exibido.</p></main>}
