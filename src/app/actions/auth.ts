@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import {initialServices} from "@/lib/default-services";
 import {createSession,destroySession} from "@/lib/auth";
 import {str,onlyDigits} from "@/lib/format";
 export async function register(form:FormData){
@@ -12,7 +13,7 @@ export async function register(form:FormData){
  const shopExists=await db.barbershop.findUnique({where:{slug}});
  if(exists||shopExists)redirect("/cadastro?erro=existente");
  const passwordHash=await bcrypt.hash(password,12);
- await db.barbershop.create({data:{name,slug,users:{create:{username,passwordHash,role:"OWNER",fullName,email,phone}}}});
+ await db.barbershop.create({data:{name,slug,users:{create:{username,passwordHash,role:"OWNER",fullName,email,phone}},services:{create:initialServices}}});
  redirect("/login?cadastro=realizado");
 }
 export async function signIn(form:FormData){
