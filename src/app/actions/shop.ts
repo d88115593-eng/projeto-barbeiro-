@@ -100,3 +100,30 @@ export async function removeMedia(form:FormData){
  await db.media.deleteMany({where:{id,shopId:shop.id}});
  revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
 }
+
+export async function updateProfessional(form:FormData){
+ const {shop}=await requireActiveOwner(),id=str(form,"id",100),name=str(form,"name",80),commissionPct=Number(str(form,"commissionPct",3));
+ if(name.length<2||!Number.isInteger(commissionPct)||commissionPct<0||commissionPct>100)return;
+ await db.professional.updateMany({where:{id,shopId:shop.id},data:{name,commissionPct,photoUrl:urlOrBlank(str(form,"photoUrl",800))}});
+ revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
+}
+export async function updateService(form:FormData){
+ const {shop}=await requireActiveOwner(),id=str(form,"id",100),name=str(form,"name",80),duration=Number(str(form,"durationMinutes",4));
+ if(name.length<2||!Number.isInteger(duration)||duration<15||duration>360)return;
+ const priceCents=moneyInput(form,"price");
+ await db.service.updateMany({where:{id,shopId:shop.id},data:{name,priceCents,durationMinutes:duration,description:str(form,"description",300)}});
+ revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
+}
+export async function addBlockedDate(form:FormData){
+ const {shop}=await requireActiveOwner(),date=str(form,"date",10),raw=str(form,"professionalId",100);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date+"T00:00:00Z")))return;
+ const professionalId=raw==="ALL"?null:raw;
+ if(professionalId && !await db.professional.findFirst({where:{id:professionalId,shopId:shop.id}}))return;
+ await db.blockedDate.create({data:{shopId:shop.id,date,professionalId,note:str(form,"note",120)}});
+ revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
+}
+export async function removeBlockedDate(form:FormData){
+ const {shop}=await requireActiveOwner(),id=str(form,"id",100);
+ await db.blockedDate.deleteMany({where:{id,shopId:shop.id}});
+ revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
+}

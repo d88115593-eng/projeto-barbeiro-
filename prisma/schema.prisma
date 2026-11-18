@@ -62,6 +62,7 @@ model Barbershop {
   reviews Review[]
   media Media[]
   audits AuditLog[]
+  blockedDates BlockedDate[]
 }
 model User {
   id String @id @default(cuid())
@@ -92,6 +93,7 @@ model Professional {
   commissionPct Int @default(50)
   active Boolean @default(true)
   hours WorkingHour[]
+  blockedDates BlockedDate[]
   bookings Appointment[]
   @@index([shopId])
 }
@@ -116,6 +118,17 @@ model WorkingHour {
   endMinute Int
   enabled Boolean @default(true)
   @@unique([professionalId,weekday])
+}
+model BlockedDate {
+  id String @id @default(cuid())
+  shopId String
+  shop Barbershop @relation(fields:[shopId],references:[id],onDelete:Cascade)
+  professionalId String?
+  professional Professional? @relation(fields:[professionalId],references:[id],onDelete:Cascade)
+  date String
+  note String @default("")
+  createdAt DateTime @default(now())
+  @@index([shopId,date])
 }
 model Appointment {
   id String @id @default(cuid())

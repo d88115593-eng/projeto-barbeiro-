@@ -12,6 +12,8 @@ export async function getAvailableSlots(shopId:string, professionalId:string,ser
   db.service.findFirst({where:{id:serviceId,shopId,active:true}})
  ]);
  if(!shop || shop.status!=="ACTIVE" || !shop.paidThrough || shop.paidThrough<new Date() || !professional || !service) return [];
+ const isBlocked=await db.blockedDate.findFirst({where:{shopId,date,OR:[{professionalId:null},{professionalId}]},select:{id:true}});
+ if(isBlocked)return [];
  const hours=professional.hours.find(h=>h.weekday===day.getUTCDay() && h.enabled);
  if(!hours || hours.endMinute-hours.startMinute < service.durationMinutes) return [];
  const start=fromZonedTime(date+"T00:00:00",shop.timezone);
