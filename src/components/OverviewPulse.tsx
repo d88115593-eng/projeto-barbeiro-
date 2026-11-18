@@ -1,0 +1,16 @@
+import {CalendarClock,ArrowUpRight,Wallet,Target,Users2} from "lucide-react";
+import {formatInTimeZone} from "date-fns-tz";
+import {brl} from "@/lib/format";
+import {ShareBookingLink} from "@/components/ShareBookingLink";
+type Booking={id:string;startAt:Date;clientName:string;service:{name:string};professional:{name:string};amountCents:number};
+export function OverviewPulse({shopSlug,shopTimezone,upcoming,dayConfirmed,dayCompleted,dayCancelled,dayPaid,monthRevenue,monthlyGoal,week}:{shopSlug:string;shopTimezone:string;upcoming:Booking[];dayConfirmed:number;dayCompleted:number;dayCancelled:number;dayPaid:number;monthRevenue:number;monthlyGoal:number;week:{label:string;received:number}[]}){
+ const goalPct=monthlyGoal>0?Math.round(monthRevenue/monthlyGoal*100):0;
+ const max=Math.max(1,...week.map(x=>x.received));
+ return <section className="pulse-board overview-only" aria-label="Resumo de desempenho da barbearia">
+  <div className="pulse-lead"><div><span className="eyebrow">SEU CENTRO DE OPERAÇÕES</span><h2>O seu dia, em uma visão.</h2><p>O que já entrou no caixa, os próximos clientes e o progresso do mês.</p></div><div className="pulse-share"><span>Seu link de agendamento</span><ShareBookingLink slug={shopSlug}/></div></div>
+  <div className="pulse-card-grid">
+   <div className="pulse-card pulse-today"><div className="pulse-card-heading"><span><CalendarClock size={19}/> Hoje na agenda</span><a href="#agenda">Ver agenda <ArrowUpRight size={15}/></a></div><div className="pulse-today-stats"><div><strong>{dayConfirmed}</strong><small>Aguardando</small></div><div><strong>{dayCompleted}</strong><small>Concluídos</small></div><div><strong>{dayCancelled}</strong><small>Cancelados/faltas</small></div></div><div className="pulse-appointments"><span className="eyebrow">PRÓXIMOS ATENDIMENTOS</span>{upcoming.length?upcoming.map(a=><div className="pulse-booking" key={a.id}><span className="pulse-booking-time">{formatInTimeZone(a.startAt,shopTimezone,"HH:mm")}</span><div><strong>{a.clientName}</strong><small>{a.service.name} · {a.professional.name}</small></div><b>{brl(a.amountCents)}</b></div>):<div className="pulse-empty"><Users2 size={21}/><p>Sem próximos horários confirmados para hoje.</p></div>}</div></div>
+   <div className="pulse-card pulse-money"><div className="pulse-card-heading"><span><Wallet size={19}/> Recebimentos de hoje</span><a href="#financeiro">Ver gráficos <ArrowUpRight size={15}/></a></div><strong className="pulse-main-money">{brl(dayPaid)}</strong><p>Somente atendimentos concluídos e marcados como pagos.</p><div className="pulse-week"><span>Últimos 7 dias</span><div className="pulse-week-bars">{week.map((d,i)=><div key={i} title={d.label+": "+brl(d.received)}><span style={{height:Math.max(4,d.received/max*100)+"%"}}/><small>{d.label.slice(0,2)}</small></div>)}</div></div><div className="pulse-goal"><div><span><Target size={16}/> Meta do mês</span><b>{monthlyGoal>0?goalPct+"%":"Não definida"}</b></div><div className="pulse-goal-track"><span style={{width:Math.min(100,goalPct)+"%"}}/></div><small>{monthlyGoal>0?`${brl(monthRevenue)} / ${brl(monthlyGoal)}`:"Defina uma meta no Financeiro para acompanhar seu desempenho."}</small></div></div>
+  </div>
+ </section>;
+}
