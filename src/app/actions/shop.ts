@@ -3,7 +3,8 @@ import { revalidatePath } from "next/cache";
 import {fromZonedTime} from "date-fns-tz";
 import {initialServices} from "@/lib/default-services";
 import {validatedWebhookUrl} from "@/lib/webhook-url";
-import {sendBookingWebhook} from "@/lib/notification-webhook";
+import {sendBookingWebhook,testShopWebhook} from "@/lib/notification-webhook";
+import {redirect} from "next/navigation";
 import {db} from "@/lib/db";
 import {requireActiveOwner,requireOwner} from "@/lib/auth";
 import {moneyInput,str,urlOrBlank,onlyDigits} from "@/lib/format";
@@ -249,4 +250,22 @@ export async function updateNotificationIntegration(form:FormData){
  if(enabled&&!raw)return;
  await db.barbershop.update({where:{id:shop.id},data:{notificationWebhookUrl:raw,notificationWebhookEnabled:enabled}});
  revalidatePath("/admin");
+}
+
+/** Sends a safe synthetic event so the shop owner can confirm integration setup. */
+export async function testNotificationFromOwner(){
+ const {shop}=await requireOwner();
+ const ok=await testShopWebhook(shop.id);
+ redirect("/admin?webhook="+(ok?"ok":"falha")+"#notificacoes");
+}
+/** Manual retry of one failed event. No automatic duplicate messages. */
+export async function retryNotificationFromOwner(form:FormData){
+ const {shop}=await requireOwner();
+ if(!shop.notificationWebhookEnabled)return;
+ const id=str(form,"id",100);
+ const delivery=await db.notificationDelivery.findFirst({where:{id,shopId:shop.id,status:"FAILED"}});
+ if(!delivery||!["booking.created","booking.updated","booking.cancelled"].includes(delivery.event))return;
+ const event=delivery.event as "booking.created"|"booking.updated"|"booking.cancelled";
+ const ok=await sendBookingWebhook(shop.id,delivery.appointmentId,event);
+ redirect("/admin?webhook="+(ok?"ok":"falha")+"#notificacoes");
 }
