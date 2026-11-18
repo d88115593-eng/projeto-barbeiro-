@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import {fromZonedTime} from "date-fns-tz";
 import {db} from "@/lib/db";
+import {sendBookingWebhook} from "@/lib/notification-webhook";
 import {getAvailableSlots} from "@/lib/availability";
 import {str,onlyDigits} from "@/lib/format";
 export async function bookOnline(form:FormData) {
@@ -19,6 +20,7 @@ export async function bookOnline(form:FormData) {
  if(!service)redirect("/b/"+slug+"?erro=servico");
  // Lock the professional row so simultaneous requests cannot reserve overlapping time.
  let reference="";
+ let appointmentId="";
  try{
   reference=await db.$transaction(async tx=>{
    await tx.$queryRaw`SELECT "id" FROM "Professional" WHERE "id" = ${professionalId} FOR UPDATE`;
@@ -36,8 +38,10 @@ export async function bookOnline(form:FormData) {
    const busy=await tx.appointment.findFirst({where:{shopId:shop.id,professionalId,status:{in:["CONFIRMED","COMPLETED"]},startAt:{lt:slot.endAt},endAt:{gt:slot.startAt}}});
    if(busy)throw new Error("Horário ocupado");
    const booked=await tx.appointment.create({data:{shopId:shop.id,serviceId,professionalId,clientName,clientPhone,startAt:slot.startAt,endAt:slot.endAt,amountCents:service.priceCents,paymentMethod:payment as "PIX"|"AT_SHOP"}});
+   appointmentId=booked.id;
    return booked.reference;
   },{timeout:10000});
  }catch{redirect("/b/"+slug+"?erro=horario");}
+ if(appointmentId)await sendBookingWebhook(shop.id,appointmentId);
  redirect("/b/"+slug+"/confirmacao/"+reference);
 }
