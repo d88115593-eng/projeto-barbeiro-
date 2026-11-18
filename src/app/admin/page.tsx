@@ -1,0 +1,1 @@
+export default function Admin(){return <main><span className="pill">Painel da barbearia</span><h1>Gestão da sua barbearia</h1><p>Área reservada. Login, agenda, financeiro e editor serão liberados após implementação e testes de segurança.</p></main>}
