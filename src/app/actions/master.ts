@@ -92,10 +92,8 @@ export async function updateSalesSettings(form:FormData){
  if([planMonthlyCents,planQuarterlyCents,planSemiannualCents].some(v=>v<100||v>10000000))return;
  const salesPixKey=str(form,"salesPixKey",180),salesPixRecipient=str(form,"salesPixRecipient",80);
  const salesPixEnabled=form.get("salesPixEnabled")==="on";
- const salesPaymentProvider=["MANUAL","BLACKCAT"].includes(str(form,"salesPaymentProvider",20))?str(form,"salesPaymentProvider",20):"MANUAL";
- const salesGatewayCheckoutUrl=urlOrBlank(str(form,"salesGatewayCheckoutUrl",800));
- if(salesPixEnabled&&(!salesPixKey||!salesPixRecipient))return;
- if(salesPaymentProvider==="BLACKCAT"&&!salesGatewayCheckoutUrl)return;
+ const salesPaymentProvider="MANUAL";
+ const salesGatewayCheckoutUrl="";
  const data={salesHeadline,salesSubtitle,salesEyebrow,salesCta,planMonthlyCents,planQuarterlyCents,planSemiannualCents,salesPixKey,salesPixRecipient,salesPixEnabled,salesPaymentProvider,salesGatewayCheckoutUrl,salesTestimonial1:str(form,"salesTestimonial1",450),salesTestimonial2:str(form,"salesTestimonial2",450),salesTestimonial3:str(form,"salesTestimonial3",450)};
  await db.$transaction([db.platformSettings.upsert({where:{id:"main"},create:{id:"main",...data},update:data}),db.auditLog.create({data:{actorId:actor.id,event:"PAGINA_DE_VENDAS_ATUALIZADA"}})]);
  revalidatePath("/");revalidatePath("/master");revalidatePath("/assinar");
