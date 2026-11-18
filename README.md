@@ -1,32 +1,57 @@
-# Projeto Barbeiro — Plataforma SaaS
+# BARBERNEX
+**A nova era da gestão para barbearias.**
 
-Sistema multi-barbearias para gestão, agenda e sites personalizáveis.
+Plataforma SaaS (Next.js 15, React 19, TypeScript, PostgreSQL, Prisma) com marca **preto + azul elétrico**.
 
-> Estado: fundação inicial do repositório. **Não está pronto para produção**. A integração com gateway será posterior.
+## Rotas
+- `/` — apresentação da BARBERNEX e planos
+- `/cadastro` — cadastro de barbearia e do proprietário
+- `/login` — acesso por usuário e senha
+- `/master` — console Master (exclusivo para papel MASTER)
+- `/admin` — gestão do proprietário da barbearia
+- `/b/[slug]` — site e agenda pública por barbearia
+- `/b/[slug]/confirmacao/[reference]` — comprovante da reserva e link do WhatsApp
 
-## Rotas planejadas
-- `/`: landing page comercial da plataforma
-- `/master`: painel exclusivo do proprietário da plataforma
-- `/admin`: painel administrativo de cada barbearia
-- `/b/[slug]`: site público individual de cada barbearia
+## Funcionalidades implementadas em código
+- Modelo multi-barbearia no PostgreSQL e sessão com token aleatório armazenado por hash; senhas via bcrypt.
+- Contas por barbearia, aprovação manual de planos pelo Master (30, 90, 180 dias); suspensão e redefinição de senha auditadas.
+- Página pública com serviços, profissionais, fotos/vídeos, depoimentos, Pix manual/pagamento presencial e horários.
+- Reservas protegidas contra sobreposição por transação com bloqueio do profissional no PostgreSQL. WhatsApp aberto com texto pronto depois da reserva (não envia automaticamente).
+- Administrativo: dashboard, agenda, concluir/cancelar/registrar pagamento, cortes avulsos, despesas, receitas, comissões estimadas, clientes, equipe, jornadas, serviços, site e feedbacks.
+- Upload de imagens (JPG, PNG, WEBP) e vídeos MP4 para diretório local persistente de servidor.
+- Interface responsiva, identidade BARBERNEX preto e azul elétrico.
 
-## Requisitos funcionais
-- Login por usuário/senha, papéis MASTER/OWNER/STAFF e autorização server-side.
-- Multi-tenancy: toda consulta deve ser isolada por barbearia; suporte Master auditado.
-- Master: assinantes, planos (30 dias R$19,90, 90 dias R$29,90, 180 dias R$59,90), suspensão, credenciais e auditoria.
-- Admin: serviços, barbeiros, jornadas e bloqueios, clientes, agenda, atendimentos avulsos, caixa, despesas, comissões, relatórios, estoque.
-- Editor: marca, logo, fotos reais, vídeos, avaliações moderadas, redes, localização, seções e prévia.
-- Cliente: serviços, profissional, disponibilidade, reserva persistida e confirmação opcional por WhatsApp.
-- Pagamento na loja, Pix manual (sem confirmação automática) e integração futura com gateway.
-- Financeiro: distinguir agendado, realizado, pago, cancelado; avulsos entram no faturamento somente quando efetivamente recebidos.
-- Reservas devem ser criadas com transação e proteção contra sobreposição.
-- Não inserir senhas, chaves Pix privadas ou segredos no GitHub.
+## Como executar em servidor com Node.js + PostgreSQL
+Requisitos: Node.js 22+, npm, PostgreSQL 16+.
 
-## Arquitetura proposta
-Next.js App Router + TypeScript + PostgreSQL + ORM, autenticação segura, armazenamento de mídia, testes automatizados, CI e deploy com variáveis de ambiente.
+1. `npm install`
+2. Copie `.env.example` para `.env` e altere `DATABASE_URL`.
+3. `npx prisma generate`
+4. `npx prisma db push` (ambiente de desenvolvimento; para produção, gerar e aplicar migrações revisadas).
+5. Crie conta Master usando variáveis de ambiente `MASTER_USERNAME` e `MASTER_PASSWORD` (12+ caracteres) e execute `npm run master:create`.
+6. `npm run dev` para desenvolvimento ou `npm run build && npm start` para execução Node.js tradicional.
+7. Acesse `http://localhost:3000`.
 
-## Antes de produção
-Implementar e validar autenticação, autorização, migrações, persistência, antifraude, isolamento entre barbearias, uploads, LGPD, backups, testes de concorrência e monitoramento.
+Se usar o Compose local, defina `POSTGRES_PASSWORD` no terminal e execute `docker compose up -d`. O Compose disponibiliza PostgreSQL apenas em `127.0.0.1:5432`.
 
-## Status
-Primeiro commit de estrutura e escopo. Os painéis e APIs operacionais ainda precisam ser implementados e testados.
+**Uploads:** configure `UPLOAD_DIR` para pasta persistente do servidor, com permissão de escrita e backup. Em serviços sem armazenamento persistente, configure um volume ou adapte para S3/R2 antes de vender assinaturas.
+
+## Assinaturas
+- Mensal 30 dias: R$ 19,90
+- Trimestral 90 dias: R$ 29,90
+- Semestral 180 dias: R$ 59,90
+
+**O gateway de cobrança não está integrado.** O cadastro cria uma conta com status PENDENTE; o Master ativa/renova manualmente o período. Não existe confirmação automática de pagamento das assinaturas ou do Pix dos clientes.
+
+## Segurança e limitações conhecidas
+- Não colocar credenciais, senhas, tokens, chaves privadas ou dados reais em repositório público.
+- O acesso Master é criado via script no servidor, não existe senha padrão.
+- Nunca interpretar "valor agendado" como "faturamento": receitas mostram apenas serviços concluídos e pagos; despesas são registros manuais.
+- Necessário implementar rate limiting de login e cadastro, proteção anti-spam de agendamentos, recuperação de senha com verificação, migrações versionadas, verificações de extensão real do arquivo, moderação ampliada de mídia, e revisão de conformidade LGPD antes de uso público comercial.
+- O armazenamento local dos uploads exige persistência real, não é adequado a hospedagem serverless efêmera sem adaptação.
+- Jornadas atualmente suportam um intervalo de abertura por dia; pausas intradiárias e bloqueio de férias são melhorias futuras.
+- O painel não é um gateway financeiro; não emite NF nem baixa Pix automaticamente.
+- O aplicativo não é considerado pronto para produção sem testes de integração, testes de concorrência das reservas e implantação com HTTPS, backups e monitoramento.
+
+## Revisão contínua
+A GitHub Action em `.github/workflows/ci.yml` instala dependências, valida o schema, executa verificação TypeScript e tenta compilar o Next.js. Verifique o resultado da Action antes de considerar o commit aprovado.

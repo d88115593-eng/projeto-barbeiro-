@@ -11,12 +11,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: 'package-lock.json'
-      - run: npm install --no-audit --no-fund
-      - run: npx prisma validate
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      - name: Validar banco
+        run: npx prisma validate
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
-      - run: npm run build
+      - name: Verificar tipos
+        run: npx prisma generate && npm run typecheck
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+      - name: Compilar aplicação
+        run: npm run build
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test
