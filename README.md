@@ -77,3 +77,25 @@ A GitHub Action em `.github/workflows/ci.yml` instala dependências, valida o sc
 - `GET /api/health` retorna status 200 quando a aplicação consegue consultar PostgreSQL, ou 503 quando não consegue. Não expõe credenciais.
 - O agendamento verifica novamente o limite diário de reservas e os bloqueios dentro da transação com o profissional bloqueado, evitando ultrapassar o limite em chamadas simultâneas.
 - Execute o banco atualizado antes de publicar uma nova versão da aplicação. Uma CI verde só valida uma instância de teste com o schema atualizado; não corrige automaticamente o banco da hospedagem real.
+
+
+## Versão em revisão: metas individuais, sinais e checkout configurável
+- O dono da barbearia pode definir metas mensais por profissional, consultar ranking de faturamento e comparar com os valores recebidos de serviços concluídos e pagos.
+- Em **/admin#sinal**, cada barbearia escolhe **sem sinal**, **sinal opcional** ou **sinal obrigatório**. Configura valor fixo/percentual, desconto ou taxa adicional, prazo e mensagem personalizada. O Pix usado é o da barbearia em **Meu site**, e não o do Master.
+- Com sinal obrigatório, o sistema coloca o agendamento como **aguardando pagamento**, bloqueia o horário até o vencimento e libera o horário automaticamente nas buscas após expirar. O barbeiro só pode marcar o sinal recebido manualmente após **conferir no banco**. O estado aguardando sinal **não equivale a reserva confirmada**.
+- O Master escolhe Pix e/ou um endereço HTTPS de checkout **separado por plano** (mensal, trimestral e semestral) em **/master#vendas**. O link da GATE é um redirecionamento; **não há conciliação nem ativação automática** sem implementar webhook específico do fornecedor.
+- Faturamento de serviços e sinais são apresentados separadamente para não confundir adiantamentos com receita integral.
+- **Limitação:** QR Pix estático não permite validação automática. Não ativar uma assinatura ou confirmar sinal por comprovante enviado pelo cliente; confira a entrada efetiva na instituição financeira.
+
+### Instalação nova com banco vazio (Node 22 e PostgreSQL 16)
+1. Crie banco PostgreSQL **vazio** na sua hospedagem (não restaure dados de testes). Use conexões protegidas e armazenamento de backups.
+2. Configure as variáveis privadas **DATABASE_URL**, **MASTER_USERNAME** e **MASTER_PASSWORD** no painel da hospedagem. Nunca grave senhas/chaves no GitHub.
+3. Execute `npm ci` (ou `npm install` se ainda não houver package-lock), `npx prisma generate`, `npx prisma db push` **somente na criação inicial de um banco vazio** e `npm run master:create`.
+4. Execute `npm run build` e `npm start`, mantenha `/api/health` retornando `database: connected`.
+5. Defina **UPLOAD_DIR** para volume permanente com backup, HTTPS obrigatório e um domínio público. Em hospedagem sem volume, imagens desaparecerão entre reinícios.
+6. Teste cadastros, horários, bloqueios, sinal obrigatório e aprovação manual, financeiro e e-mails/webhooks **com contas de teste**, antes de cadastrar clientes reais.
+7. Configure os links de checkout para o valor de cada plano; ative assinaturas manualmente somente após confirmar pagamento no provedor. Configure as chaves Pix somente no painel autorizado.
+8. Planeje migrações versionadas, rotina de backups/restore, logs e controle antiabuso antes de comercializar.
+
+### Testes automatizados no GitHub
+A workflow executa PostgreSQL temporário, valida/instala o schema, testa isolamento de lojas, concorrência de agendamentos, sinal e expiração, cálculo financeiro de sinal, TypeScript, build e verificações HTTP em rotas reais. **CI verde não substitui homologação** de pagamentos ou entrega final de notificações externas.
