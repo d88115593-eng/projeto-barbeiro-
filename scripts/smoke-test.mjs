@@ -32,9 +32,21 @@ try{
  await db.appointment.update({where:{id:booking.id},data:{status:"COMPLETED",paymentStatus:"PAID"}});
  const revenue=await db.appointment.aggregate({where:{shopId,status:"COMPLETED",paymentStatus:"PAID"},_sum:{amountCents:true}});
  assert.equal(revenue._sum.amountCents,3500,"receita registrada");
+ await db.barbershop.update({where:{id:shopId},data:{depositMode:"REQUIRED",depositFixedCents:1000,depositDueMinutes:30,pixEnabled:true,pixKey:"ci-test",pixRecipientName:"Barbearia Teste"}});
+ const startHold=new Date("2030-01-08T14:00:00.000Z"),endHold=new Date(startHold.getTime()+1800000);
+ const pending=await db.appointment.create({data:{shopId,professionalId:pro.id,serviceId:service.id,clientName:"Sinal",clientPhone:"71999999999",startAt:startHold,endAt:endHold,amountCents:3500,status:"AWAITING_PAYMENT",paymentMethod:"PIX",depositStatus:"PENDING",depositAmountCents:1000,depositExpiresAt:new Date(Date.now()+1800000)}});
+ assert.equal((await db.appointment.findFirst({where:{id:pending.id,shopId:otherId}})),null,"isolamento de sinal entre lojas");
+ const activeHold={shopId,professionalId:pro.id,startAt:{lt:endHold},endAt:{gt:startHold},OR:[{status:{in:["CONFIRMED","COMPLETED"]}},{status:"AWAITING_PAYMENT",depositExpiresAt:{gt:new Date()}}]};
+ assert.ok(await db.appointment.findFirst({where:activeHold}),"sinal pendente bloqueia horário");
+ const paid=await db.appointment.update({where:{id:pending.id},data:{status:"CONFIRMED",depositStatus:"PAID",depositPaidAt:new Date()}});
+ assert.equal(paid.depositStatus,"PAID","confirmação manual do sinal");
+ assert.equal(paid.paymentStatus,"PENDING","sinal não marca o serviço inteiro como pago");
+ await db.appointment.update({where:{id:pending.id},data:{status:"AWAITING_PAYMENT",depositStatus:"PENDING",depositPaidAt:null,depositExpiresAt:new Date(Date.now()-60000)}});
+ const activeAfterExpiry=await db.appointment.findFirst({where:activeHold});
+ assert.equal(activeAfterExpiry,null,"pré-reserva expirada deixa de bloquear a agenda");
  const blocked=await db.blockedDate.create({data:{shopId,date:"2030-01-09",note:"Folga"}});
  assert.equal((await db.blockedDate.findFirst({where:{shopId,date:"2030-01-09"}}))?.id,blocked.id,"bloqueio salvo");
- console.log("SMOKE OK — isolamento, corrida de reservas, faturamento e folgas");
+ console.log("SMOKE OK — isolamento, reservas simultâneas, sinal, expiração, faturamento e folgas");
 }catch(err){console.error(err);process.exitCode=1;}
 finally{
  if(shopId){
