@@ -133,12 +133,19 @@ export async function updateSchedule(form:FormData){
 }
 export async function registerWalkIn(form:FormData){
  const {shop}=await requireActiveOwner(),professionalId=str(form,"professionalId",100),serviceId=str(form,"serviceId",100);
- const [pro,service]=await Promise.all([db.professional.findFirst({where:{id:professionalId,shopId:shop.id}}),db.service.findFirst({where:{id:serviceId,shopId:shop.id}})]);
+ const [pro,service]=await Promise.all([db.professional.findFirst({where:{id:professionalId,shopId:shop.id,active:true}}),db.service.findFirst({where:{id:serviceId,shopId:shop.id,active:true}})]);
  if(!pro||!service)return;
  const clientName=str(form,"clientName",80)||"Cliente avulso",clientPhone=str(form,"clientPhone",25);
- const startAt=new Date(),endAt=new Date(startAt.getTime()+service.durationMinutes*60000);
  const paid=form.get("paid")==="on";
- await db.appointment.create({data:{shopId:shop.id,professionalId,serviceId,clientName,clientPhone,startAt,endAt,amountCents:service.priceCents,source:"WALK_IN",status:"COMPLETED",paymentStatus:paid?"PAID":"PENDING",paidAt:paid?startAt:null,paymentMethod:"AT_SHOP"}});
+ const created=await db.$transaction(async tx=>{
+  await tx.$queryRaw`SELECT "id" FROM "Professional" WHERE "id" = ${professionalId} FOR UPDATE`;
+  const startAt=new Date(),endAt=new Date(startAt.getTime()+service.durationMinutes*60000);
+  const busy=await tx.appointment.findFirst({where:{shopId:shop.id,professionalId,startAt:{lt:endAt},endAt:{gt:startAt},OR:[{status:{in:["CONFIRMED","COMPLETED"]}},{status:"AWAITING_PAYMENT",depositExpiresAt:{gt:startAt}}]}});
+  if(busy)return false;
+  await tx.appointment.create({data:{shopId:shop.id,professionalId,serviceId,clientName,clientPhone,startAt,endAt,amountCents:service.priceCents,source:"WALK_IN",status:"COMPLETED",paymentStatus:paid?"PAID":"PENDING",paidAt:paid?startAt:null,paymentMethod:"AT_SHOP"}});
+  return true;
+ });
+ if(!created)redirect("/admin?erro=horario#atendimentos");
  revalidatePath("/admin");
 }
 export async function updateBooking(form:FormData){
