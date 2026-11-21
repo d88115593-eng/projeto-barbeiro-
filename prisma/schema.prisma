@@ -129,6 +129,7 @@ model Professional {
   name String
   photoUrl String @default("")
   commissionPct Int @default(50)
+  monthlyGoalCents Int @default(0)
   slotIntervalMinutes Int @default(30)
   maxDailyBookings Int @default(0)
   active Boolean @default(true)
