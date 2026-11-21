@@ -18,7 +18,7 @@ export async function getAvailableSlots(shopId:string, professionalId:string,ser
  if(!hours || hours.endMinute-hours.startMinute < service.durationMinutes) return [];
  const start=fromZonedTime(date+"T00:00:00",shop.timezone);
  const end=new Date(start.getTime()+1000*60*60*48);
- const occupied=await db.appointment.findMany({where:{professionalId,shopId,status:{in:["CONFIRMED","COMPLETED"]},startAt:{lt:end},endAt:{gt:start}},select:{startAt:true,endAt:true}});
+ const occupied=await db.appointment.findMany({where:{professionalId,shopId,OR:[{status:{in:["CONFIRMED","COMPLETED"]}},{status:"AWAITING_PAYMENT",depositExpiresAt:{gt:new Date()}}],startAt:{lt:end},endAt:{gt:start}},select:{startAt:true,endAt:true}});
  const slots:Slot[]=[];
  const nextDay=new Date(day.getTime()+86400000).toISOString().slice(0,10);
  const nextStart=fromZonedTime(nextDay+"T00:00:00",shop.timezone);
