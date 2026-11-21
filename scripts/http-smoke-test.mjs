@@ -2,7 +2,7 @@ import {spawn} from "node:child_process";
 import assert from "node:assert/strict";
 const port=Number(process.env.BARBERNEX_TEST_PORT||32847);
 const base=`http://127.0.0.1:${port}`;
-const child=spawn("npm",["run","start","--","-p",String(port)],{stdio:"pipe",env:{...process.env,NODE_ENV:"production"}});
+const child=spawn(process.execPath,["node_modules/next/dist/bin/next","start","-p",String(port)],{stdio:"pipe",env:{...process.env,NODE_ENV:"production"}});
 let logs="";child.stdout.on("data",d=>logs+=String(d).slice(-3000));child.stderr.on("data",d=>logs+=String(d).slice(-3000));
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function request(path){return fetch(base+path,{redirect:"manual",signal:AbortSignal.timeout(4000)});}
