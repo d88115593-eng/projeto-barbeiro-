@@ -31,7 +31,7 @@ export function BookingForm({slug,timezone,professionals,services,pixEnabled,pay
   const controller=new AbortController();
   setLoading(true);setHour("");
   fetch(`/api/horarios?slug=${encodeURIComponent(slug)}&professionalId=${encodeURIComponent(professionalId)}&serviceId=${encodeURIComponent(serviceId)}&date=${encodeURIComponent(date)}`,{signal:controller.signal})
-  .then(r=>r.json()).then(data=>setSlots(data.slots||[])).catch(()=>setSlots([])).finally(()=>setLoading(false));
+  .then(r=>r.ok?r.json():{slots:[]}).then(data=>{if(!controller.signal.aborted)setSlots(Array.isArray(data.slots)?data.slots:[]);}).catch(()=>{if(!controller.signal.aborted)setSlots([]);}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
   return()=>controller.abort();
  },[date,professionalId,serviceId,slug]);
  const minDate=new Date().toLocaleDateString("en-CA",{timeZone:timezone});
