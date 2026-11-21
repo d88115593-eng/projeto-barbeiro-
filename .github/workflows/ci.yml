@@ -41,3 +41,5 @@ jobs:
         run: npm run typecheck
       - name: Compilar aplicação
         run: npm run build
+      - name: Validar rotas reais via HTTP e conexão PostgreSQL
+        run: node scripts/http-smoke-test.mjs
