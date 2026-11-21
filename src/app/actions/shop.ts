@@ -312,3 +312,15 @@ export async function confirmDeposit(form:FormData){
  if(changed&&changed.status==="AWAITING_PAYMENT")await sendBookingWebhook(shop.id,changed.id,"booking.updated");
  revalidatePath("/admin");
 }
+
+/** Meta mensal independente de cada profissional. Zero desativa a meta. */
+export async function updateProfessionalGoal(form:FormData){
+ const {shop}=await requireOwner();
+ if(shop.status==="SUSPENDED")return;
+ const id=str(form,"professionalId",100),raw=str(form,"monthlyGoal",20);
+ if(!/^(?:\d{1,7})(?:\.\d{1,2})?$/.test(raw))return;
+ const monthlyGoalCents=Math.round(Number(raw)*100);
+ if(!Number.isSafeInteger(monthlyGoalCents)||monthlyGoalCents<0||monthlyGoalCents>100000000)return;
+ await db.professional.updateMany({where:{id,shopId:shop.id},data:{monthlyGoalCents}});
+ revalidatePath("/admin");
+}
