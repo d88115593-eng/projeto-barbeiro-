@@ -94,11 +94,15 @@ export async function updateSalesSettings(form:FormData){
  const salesPixKey=str(form,"salesPixKey",180),salesPixRecipient=str(form,"salesPixRecipient",80);
  const salesPixEnabled=form.get("salesPixEnabled")==="on";
  const salesPaymentProvider=form.get("salesPaymentProvider")==="CHECKOUT_LINK"?"CHECKOUT_LINK":"MANUAL";
- const salesGatewayCheckoutUrl=str(form,"salesGatewayCheckoutUrl",700);
- if(salesGatewayCheckoutUrl&&!/^https:\/\/[^\s]+$/i.test(salesGatewayCheckoutUrl))return;
- if(salesPaymentProvider==="CHECKOUT_LINK"&&!salesGatewayCheckoutUrl)return;
+ const salesGatewayCheckoutUrl=""; // Não reaproveitar o mesmo checkout para preços diferentes.
+ const salesGatewayMonthlyUrl=str(form,"salesGatewayMonthlyUrl",700);
+ const salesGatewayQuarterlyUrl=str(form,"salesGatewayQuarterlyUrl",700);
+ const salesGatewaySemiannualUrl=str(form,"salesGatewaySemiannualUrl",700);
+ const checkouts=[salesGatewayMonthlyUrl,salesGatewayQuarterlyUrl,salesGatewaySemiannualUrl];
+ if(checkouts.some(url=>url&&!/^https:\/\/[^\s]+$/i.test(url)))return;
+ if(salesPaymentProvider==="CHECKOUT_LINK"&&checkouts.some(url=>!url))return;
  if(salesPixEnabled&&(!salesPixKey||!salesPixRecipient))return;
- const data={salesHeadline,salesSubtitle,salesEyebrow,salesCta,planMonthlyCents,planQuarterlyCents,planSemiannualCents,salesPixKey,salesPixRecipient,salesPixEnabled,salesPaymentProvider,salesGatewayCheckoutUrl,salesTestimonial1:str(form,"salesTestimonial1",450),salesTestimonial2:str(form,"salesTestimonial2",450),salesTestimonial3:str(form,"salesTestimonial3",450)};
+ const data={salesHeadline,salesSubtitle,salesEyebrow,salesCta,planMonthlyCents,planQuarterlyCents,planSemiannualCents,salesPixKey,salesPixRecipient,salesPixEnabled,salesPaymentProvider,salesGatewayCheckoutUrl,salesGatewayMonthlyUrl,salesGatewayQuarterlyUrl,salesGatewaySemiannualUrl,salesTestimonial1:str(form,"salesTestimonial1",450),salesTestimonial2:str(form,"salesTestimonial2",450),salesTestimonial3:str(form,"salesTestimonial3",450)};
  await db.$transaction([db.platformSettings.upsert({where:{id:"main"},create:{id:"main",...data},update:data}),db.auditLog.create({data:{actorId:actor.id,event:"PAGINA_DE_VENDAS_ATUALIZADA"}})]);
  revalidatePath("/");revalidatePath("/master");revalidatePath("/assinar");
 }
