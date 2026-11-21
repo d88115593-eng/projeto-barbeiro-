@@ -5,3 +5,6 @@ node_modules
 !.env.example
 *.log
 *.tsbuildinfo
+
+# Arquivos enviados pelos clientes: usar volume persistente
+uploads/
