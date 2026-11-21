@@ -4,11 +4,13 @@ import {fromZonedTime} from "date-fns-tz";
 import {db} from "@/lib/db";
 import {sendBookingWebhook} from "@/lib/notification-webhook";
 import {getAvailableSlots} from "@/lib/availability";
+import {depositAmount} from "@/lib/deposit";
 import {str,onlyDigits} from "@/lib/format";
 export async function bookOnline(form:FormData) {
  const slug=str(form,"slug",40),serviceId=str(form,"serviceId",100),professionalId=str(form,"professionalId",100),date=str(form,"date",10),hour=str(form,"hour",5);
  const clientName=str(form,"clientName",80),clientPhone=onlyDigits(str(form,"clientPhone",25));
  const payment=str(form,"payment",10);
+ const depositChoice=str(form,"depositChoice",3);
  if(str(form,"website",100))redirect("/b/"+slug+"?erro=dados");
  const shop=await db.barbershop.findUnique({where:{slug}});
  if(!shop || !/^[\p{L}][\p{L}\p{M} .'-]{1,79}$/u.test(clientName) || clientPhone.length<10 || clientPhone.length>13)redirect("/b/"+slug+"?erro=dados");
@@ -19,6 +21,10 @@ export async function bookOnline(form:FormData) {
  if(!slot)redirect("/b/"+slug+"?erro=horario");
  const service=await db.service.findFirst({where:{id:serviceId,shopId:shop.id,active:true}});
  if(!service)redirect("/b/"+slug+"?erro=servico");
+ const required=shop.depositMode==="REQUIRED";
+ const wantsDeposit=required||(shop.depositMode==="OPTIONAL"&&depositChoice==="YES");
+ const signalCents=wantsDeposit?depositAmount(shop,service.priceCents):0;
+ if((required||wantsDeposit)&&(payment!=="PIX"||!shop.pixEnabled||!shop.pixKey||!shop.pixRecipientName||signalCents<=0))redirect("/b/"+slug+"?erro=pagamento");
  // Lock the professional row so simultaneous requests cannot reserve overlapping time.
  let reference="";
  let appointmentId="";
@@ -36,12 +42,12 @@ export async function bookOnline(form:FormData) {
     const dayStart=fromZonedTime(date+"T00:00:00",shop.timezone);
     const tomorrow=new Date(Date.parse(date+"T00:00:00Z")+86400000).toISOString().slice(0,10);
     const dayEnd=fromZonedTime(tomorrow+"T00:00:00",shop.timezone);
-    const count=await tx.appointment.count({where:{professionalId,shopId:shop.id,status:{in:["CONFIRMED","COMPLETED"]},startAt:{gte:dayStart,lt:dayEnd}}});
+    const count=await tx.appointment.count({where:{professionalId,shopId:shop.id,OR:[{status:{in:["CONFIRMED","COMPLETED"]}},{status:"AWAITING_PAYMENT",depositExpiresAt:{gt:new Date()}}],startAt:{gte:dayStart,lt:dayEnd}}});
     if(count>=professional.maxDailyBookings)throw new Error("Limite diário atingido");
    }
-   const busy=await tx.appointment.findFirst({where:{shopId:shop.id,professionalId,status:{in:["CONFIRMED","COMPLETED"]},startAt:{lt:slot.endAt},endAt:{gt:slot.startAt}}});
+   const busy=await tx.appointment.findFirst({where:{shopId:shop.id,professionalId,OR:[{status:{in:["CONFIRMED","COMPLETED"]}},{status:"AWAITING_PAYMENT",depositExpiresAt:{gt:new Date()}}],startAt:{lt:slot.endAt},endAt:{gt:slot.startAt}}});
    if(busy)throw new Error("Horário ocupado");
-   const booked=await tx.appointment.create({data:{shopId:shop.id,serviceId,professionalId,clientName,clientPhone,startAt:slot.startAt,endAt:slot.endAt,amountCents:service.priceCents,paymentMethod:payment as "PIX"|"AT_SHOP"}});
+   const booked=await tx.appointment.create({data:{shopId:shop.id,serviceId,professionalId,clientName,clientPhone,startAt:slot.startAt,endAt:slot.endAt,amountCents:service.priceCents,paymentMethod:payment as "PIX"|"AT_SHOP",status:required?"AWAITING_PAYMENT":"CONFIRMED",depositStatus:wantsDeposit?"PENDING":"NOT_REQUIRED",depositAmountCents:signalCents,depositExpiresAt:required?new Date(Date.now()+shop.depositDueMinutes*60000):null}});
    appointmentId=booked.id;
    return booked.reference;
   },{timeout:10000});

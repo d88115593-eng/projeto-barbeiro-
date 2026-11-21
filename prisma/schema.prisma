@@ -15,10 +15,25 @@ enum ShopStatus {
   SUSPENDED
 }
 enum BookingStatus {
+  AWAITING_PAYMENT
   CONFIRMED
   COMPLETED
   CANCELLED
   NO_SHOW
+}
+enum DepositMode {
+  DISABLED
+  OPTIONAL
+  REQUIRED
+}
+enum DepositPricing {
+  FIXED
+  PERCENT
+}
+enum DepositStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
 }
 enum PaymentStatus {
   PENDING
@@ -44,6 +59,13 @@ model Barbershop {
   showServices Boolean @default(true)
   showTeam Boolean @default(false)
   monthlyGoalCents Int @default(0)
+  depositMode DepositMode @default(DISABLED)
+  depositPricing DepositPricing @default(FIXED)
+  depositFixedCents Int @default(1000)
+  depositPercent Int @default(30)
+  depositMessage String @default("O sinal será abatido do valor do atendimento.")
+  depositDueMinutes Int @default(30)
+  depositDeducts Boolean @default(true)
   notificationWebhookUrl String @default("")
   notificationWebhookEnabled Boolean @default(false)
   showGallery Boolean @default(true)
@@ -107,6 +129,7 @@ model Professional {
   name String
   photoUrl String @default("")
   commissionPct Int @default(50)
+  monthlyGoalCents Int @default(0)
   slotIntervalMinutes Int @default(30)
   maxDailyBookings Int @default(0)
   active Boolean @default(true)
@@ -168,6 +191,10 @@ model Appointment {
   paidAt DateTime?
   paymentMethod PaymentMethod @default(AT_SHOP)
   amountCents Int
+  depositStatus DepositStatus @default(NOT_REQUIRED)
+  depositAmountCents Int @default(0)
+  depositExpiresAt DateTime?
+  depositPaidAt DateTime?
   changes AppointmentChange[]
   notificationDeliveries NotificationDelivery[]
   createdAt DateTime @default(now())
@@ -230,6 +257,9 @@ model PlatformSettings {
   salesPixEnabled Boolean @default(false)
   salesPaymentProvider String @default("MANUAL")
   salesGatewayCheckoutUrl String @default("")
+  salesGatewayMonthlyUrl String @default("")
+  salesGatewayQuarterlyUrl String @default("")
+  salesGatewaySemiannualUrl String @default("")
   salesTestimonial1 String @default("")
   salesTestimonial2 String @default("")
   salesTestimonial3 String @default("")

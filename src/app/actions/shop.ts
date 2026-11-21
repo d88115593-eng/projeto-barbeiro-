@@ -18,6 +18,7 @@ export async function updateSite(form:FormData) {
  if(name.length<3)return;
  const pixKey=str(form,"pixKey",180),pixRecipientName=str(form,"pixRecipientName",80);
  if(form.get("pixEnabled")==="on" && (!pixKey||!pixRecipientName))return;
+ if(shop.depositMode==="REQUIRED" && form.get("pixEnabled")!=="on")return;
  await db.barbershop.update({where:{id:shop.id},data:{
   name,slug,description,whatsapp,address:str(form,"address",300),instagram:str(form,"instagram",120),
   heroTitle:str(form,"heroTitle",140)||"Seu estilo começa aqui.",heroSubtitle:str(form,"heroSubtitle",400),
@@ -34,7 +35,9 @@ export async function updateSite(form:FormData) {
 }
 export async function updateMonthlyGoal(form:FormData){
  const {shop}=await requireOwner();
- const monthlyGoalCents=moneyInput(form,"monthlyGoal");
+ const raw=str(form,"monthlyGoal",20);
+ if(!/^(?:\d{1,7})(?:\.\d{1,2})?$/.test(raw))return;
+ const monthlyGoalCents=Math.round(Number(raw)*100);
  if(!Number.isSafeInteger(monthlyGoalCents)||monthlyGoalCents<0||monthlyGoalCents>100000000)return;
  await db.barbershop.update({where:{id:shop.id},data:{monthlyGoalCents}});
  revalidatePath("/admin");
@@ -130,12 +133,19 @@ export async function updateSchedule(form:FormData){
 }
 export async function registerWalkIn(form:FormData){
  const {shop}=await requireActiveOwner(),professionalId=str(form,"professionalId",100),serviceId=str(form,"serviceId",100);
- const [pro,service]=await Promise.all([db.professional.findFirst({where:{id:professionalId,shopId:shop.id}}),db.service.findFirst({where:{id:serviceId,shopId:shop.id}})]);
+ const [pro,service]=await Promise.all([db.professional.findFirst({where:{id:professionalId,shopId:shop.id,active:true}}),db.service.findFirst({where:{id:serviceId,shopId:shop.id,active:true}})]);
  if(!pro||!service)return;
  const clientName=str(form,"clientName",80)||"Cliente avulso",clientPhone=str(form,"clientPhone",25);
- const startAt=new Date(),endAt=new Date(startAt.getTime()+service.durationMinutes*60000);
  const paid=form.get("paid")==="on";
- await db.appointment.create({data:{shopId:shop.id,professionalId,serviceId,clientName,clientPhone,startAt,endAt,amountCents:service.priceCents,source:"WALK_IN",status:"COMPLETED",paymentStatus:paid?"PAID":"PENDING",paidAt:paid?startAt:null,paymentMethod:"AT_SHOP"}});
+ const created=await db.$transaction(async tx=>{
+  await tx.$queryRaw`SELECT "id" FROM "Professional" WHERE "id" = ${professionalId} FOR UPDATE`;
+  const startAt=new Date(),endAt=new Date(startAt.getTime()+service.durationMinutes*60000);
+  const busy=await tx.appointment.findFirst({where:{shopId:shop.id,professionalId,startAt:{lt:endAt},endAt:{gt:startAt},OR:[{status:{in:["CONFIRMED","COMPLETED"]}},{status:"AWAITING_PAYMENT",depositExpiresAt:{gt:startAt}}]}});
+  if(busy)return false;
+  await tx.appointment.create({data:{shopId:shop.id,professionalId,serviceId,clientName,clientPhone,startAt,endAt,amountCents:service.priceCents,source:"WALK_IN",status:"COMPLETED",paymentStatus:paid?"PAID":"PENDING",paidAt:paid?startAt:null,paymentMethod:"AT_SHOP"}});
+  return true;
+ });
+ if(!created)redirect("/admin?erro=horario#atendimentos");
  revalidatePath("/admin");
 }
 export async function updateBooking(form:FormData){
@@ -146,7 +156,7 @@ export async function updateBooking(form:FormData){
   let count=0;
   if(operation==="complete")count=(await tx.appointment.updateMany({where:{...condition,status:"CONFIRMED"},data:{status:"COMPLETED"}})).count;
   else if(operation==="paid")count=(await tx.appointment.updateMany({where:{...condition,status:"COMPLETED",paymentStatus:"PENDING"},data:{paymentStatus:"PAID",paidAt:new Date()}})).count;
-  else if(operation==="cancel")count=(await tx.appointment.updateMany({where:{...condition,status:"CONFIRMED"},data:{status:"CANCELLED"}})).count;
+  else if(operation==="cancel")count=(await tx.appointment.updateMany({where:{...condition,status:{in:["CONFIRMED","AWAITING_PAYMENT"]}},data:{status:"CANCELLED"}})).count;
   else if(operation==="no_show")count=(await tx.appointment.updateMany({where:{...condition,status:"CONFIRMED"},data:{status:"NO_SHOW"}})).count;
   if(count)await tx.auditLog.create({data:{shopId:shop.id,actorId:user.id,event:"AGENDAMENTO_"+operation.toUpperCase()}});
   return count>0;
@@ -269,4 +279,55 @@ export async function retryNotificationFromOwner(form:FormData){
  const event=delivery.event as "booking.created"|"booking.updated"|"booking.cancelled";
  const ok=await sendBookingWebhook(shop.id,delivery.appointmentId,event);
  redirect("/admin?webhook="+(ok?"ok":"falha")+"#notificacoes");
+}
+
+/** Política de cobrança individual, desligada por padrão, nunca vinculada ao Pix do Master. */
+export async function updateDepositPolicy(form:FormData){
+ const {shop,user}=await requireOwner();
+ if(shop.status==="SUSPENDED")return;
+ const depositMode=str(form,"depositMode",12);
+ const depositPricing=str(form,"depositPricing",8);
+ const depositPercent=Number(str(form,"depositPercent",3));
+ const depositDueMinutes=Number(str(form,"depositDueMinutes",3));
+ const depositMessage=str(form,"depositMessage",350);
+ const raw=str(form,"depositFixed",12);
+ if(!["DISABLED","OPTIONAL","REQUIRED"].includes(depositMode)||!["FIXED","PERCENT"].includes(depositPricing))return;
+ if(!/^(?:\d{1,5})(?:\.\d{1,2})?$/.test(raw))return;
+ const depositFixedCents=Math.round(Number(raw)*100);
+ if(!Number.isSafeInteger(depositFixedCents)||depositFixedCents<100||depositFixedCents>10000000||!Number.isInteger(depositPercent)||depositPercent<1||depositPercent>100||!Number.isInteger(depositDueMinutes)||depositDueMinutes<10||depositDueMinutes>120)return;
+ // Sem confirmação automática de um Pix estático: o proprietário confere no banco.
+ if(depositMode!=="DISABLED"&&(!shop.pixEnabled||!shop.pixKey||!shop.pixRecipientName))return;
+ await db.$transaction([
+  db.barbershop.update({where:{id:shop.id},data:{depositMode:depositMode as "DISABLED"|"OPTIONAL"|"REQUIRED",depositPricing:depositPricing as "FIXED"|"PERCENT",depositFixedCents,depositPercent,depositDueMinutes,depositMessage,depositDeducts:form.get("depositDeducts")==="on"}}),
+  db.auditLog.create({data:{actorId:user.id,shopId:shop.id,event:"POLITICA_SINAL_ATUALIZADA"}})
+ ]);
+ revalidatePath("/admin");revalidatePath("/b/"+shop.slug);
+}
+/** Somente após confirmar o crédito no banco; comprovante e QR não bastam. */
+export async function confirmDeposit(form:FormData){
+ const {shop,user}=await requireActiveOwner();
+ const id=str(form,"id",100);
+ const now=new Date();
+ const changed=await db.$transaction(async tx=>{
+  const booking=await tx.appointment.findFirst({where:{id,shopId:shop.id,depositStatus:"PENDING",status:{in:["AWAITING_PAYMENT","CONFIRMED"]}}});
+  if(!booking || (booking.depositExpiresAt&&booking.depositExpiresAt<=now))return null;
+  const result=await tx.appointment.updateMany({where:{id,shopId:shop.id,depositStatus:"PENDING",status:booking.status},data:{status:"CONFIRMED",depositStatus:"PAID",depositPaidAt:now}});
+  if(!result.count)return null;
+  await tx.auditLog.create({data:{actorId:user.id,shopId:shop.id,event:"SINAL_CONFIRMADO_MANUALMENTE"}});
+  return booking;
+ });
+ if(changed&&changed.status==="AWAITING_PAYMENT")await sendBookingWebhook(shop.id,changed.id,"booking.updated");
+ revalidatePath("/admin");
+}
+
+/** Meta mensal independente de cada profissional. Zero desativa a meta. */
+export async function updateProfessionalGoal(form:FormData){
+ const {shop}=await requireOwner();
+ if(shop.status==="SUSPENDED")return;
+ const id=str(form,"professionalId",100),raw=str(form,"monthlyGoal",20);
+ if(!/^(?:\d{1,7})(?:\.\d{1,2})?$/.test(raw))return;
+ const monthlyGoalCents=Math.round(Number(raw)*100);
+ if(!Number.isSafeInteger(monthlyGoalCents)||monthlyGoalCents<0||monthlyGoalCents>100000000)return;
+ await db.professional.updateMany({where:{id,shopId:shop.id},data:{monthlyGoalCents}});
+ revalidatePath("/admin");
 }

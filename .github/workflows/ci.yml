@@ -33,9 +33,13 @@ jobs:
         run: npx prisma validate
       - name: Gerar cliente e banco de testes
         run: npx prisma generate && npx prisma db push
+      - name: Testar cálculo de sinal
+        run: node --experimental-strip-types --test scripts/test-deposit.mjs
       - name: Testar banco, agenda e isolamento
         run: node scripts/smoke-test.mjs
       - name: Verificar tipos
         run: npm run typecheck
       - name: Compilar aplicação
         run: npm run build
+      - name: Validar rotas reais via HTTP e conexão PostgreSQL
+        run: node scripts/http-smoke-test.mjs
